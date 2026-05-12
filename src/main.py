@@ -68,6 +68,19 @@ class SubmitJobReq(BaseModel):
     workflow: dict
 
 
+# ============ ADMIN ============
+
+@app.post("/admin/flush-workers")
+async def flush_workers():
+    """Xóa toàn bộ stale workers khỏi Redis registry (dùng khi debug)."""
+    r = await get_redis()
+    workers = await pool.list_workers()
+    for w in workers:
+        await pool.remove(w["pod_id"])
+    logger.warning(f"[admin] flushed {len(workers)} workers from registry")
+    return {"flushed": len(workers)}
+
+
 # ============ WORKER CALLBACKS ============
 
 @app.post("/worker/register")

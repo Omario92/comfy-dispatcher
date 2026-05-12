@@ -86,6 +86,8 @@ async def _ping_url(url: str) -> bool:
     try:
         async with httpx.AsyncClient(timeout=8) as client:
             r = await client.get(url)
-            return r.status_code < 500
+            # Chỉ coi là OK khi ComfyUI thực sự trả về 200
+            # 404 từ RunPod proxy = pod không chạy hoặc route sai
+            return r.status_code == 200
     except Exception:
         return False
