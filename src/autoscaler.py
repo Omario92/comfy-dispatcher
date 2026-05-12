@@ -33,16 +33,17 @@ async def _tick():
         f"busy={counts['busy']} booting={counts['booting']}"
     )
 
-    # ---- Warm pool: luôn giữ MIN_WORKERS ----
-    deficit = settings.MIN_WORKERS - counts["total"]
-    for _ in range(max(0, deficit)):
-        if counts["total"] < settings.MAX_WORKERS:
-            await scale_up()
-            counts["total"] += 1
+    # ---- Warm pool: giữ MIN_WORKERS (chỉ khi có job hoặc MIN_WORKERS > 0) ----
+    if settings.MIN_WORKERS > 0 and queue_depth > 0:
+        deficit = settings.MIN_WORKERS - counts["total"]
+        for _ in range(max(0, deficit)):
+            if counts["total"] < settings.MAX_WORKERS:
+                await scale_up()
+                counts["total"] += 1
 
     # ---- Scale up theo queue ----
     available = counts["idle"] + counts["booting"]
-    if queue_depth > settings.SCALE_UP_THRESHOLD and available == 0:
+    if queue_depth > 0 and available == 0:
         if counts["total"] < settings.MAX_WORKERS:
             await scale_up()
 

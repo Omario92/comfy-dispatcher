@@ -15,12 +15,12 @@ class Settings(BaseSettings):
     # ===== RunPod =====
     RUNPOD_API_KEY: str
     RUNPOD_TEMPLATE_ID: str
-    RUNPOD_GPU_TYPE: str = "RTX4090,RTX5090,RTX Pro 4500, L40S"
+    RUNPOD_GPU_TYPE: str = "NVIDIA GeForce RTX 4090,NVIDIA GeForce RTX 5090,NVIDIA RTX PRO 4500 Workstation,NVIDIA L40S"
     RUNPOD_API_URL: str = "https://api.runpod.io/graphql"
     RUNPOD_NETWORK_VOLUME_ID: str = ""
 
     # ===== Autoscale =====
-    MIN_WORKERS: int = 1
+    MIN_WORKERS: int = 0  # 0 = scale-to-zero (no warm pool)
     MAX_WORKERS: int = 10
     SCALE_UP_THRESHOLD: int = 10
     IDLE_TIMEOUT_SEC: int = 900  # 15 min
