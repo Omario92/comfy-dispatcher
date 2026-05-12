@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # ===== RunPod =====
     RUNPOD_API_KEY: str
     RUNPOD_TEMPLATE_ID: str
-    RUNPOD_GPU_TYPE: str = "NVIDIA GeForce RTX 4090,NVIDIA GeForce RTX 5090,NVIDIA RTX PRO 4500 Workstation,NVIDIA L40S"
+    RUNPOD_GPU_TYPE: str = "NVIDIA GeForce RTX 5090,NVIDIA L40S,NVIDIA A100 80GB PCIe"
     RUNPOD_API_URL: str = "https://api.runpod.io/graphql"
     RUNPOD_NETWORK_VOLUME_ID: str = ""
 
