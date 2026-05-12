@@ -82,11 +82,13 @@ async def _send_to_worker(worker: dict, job: dict):
 
     if proxy_url:
         # Gửi workflow trực tiếp vào ComfyUI /prompt API qua RunPod proxy
+        # RunPod proxy yêu cầu Bearer token để xác thực
         url = f"{proxy_url}/prompt"
         payload = {
             "prompt": job.get("workflow", {}),
             "client_id": job["job_id"],
         }
+        headers = {"Authorization": f"Bearer {settings.RUNPOD_API_KEY}"}
         logger.info(f"[consumer] sending job {job['job_id']} to ComfyUI proxy {proxy_url}")
     else:
         # Worker Agent mode (port 9000)
@@ -97,10 +99,11 @@ async def _send_to_worker(worker: dict, job: dict):
             "personality": job.get("personality", 0),
             "callback_url": f"{settings.DISPATCHER_PUBLIC_URL}/worker/done",
         }
+        headers = {}
         logger.info(f"[consumer] sending job {job['job_id']} to worker agent {worker['pod_id']}")
 
     async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.post(url, json=payload)
+        r = await client.post(url, json=payload, headers=headers)
         r.raise_for_status()
         logger.info(f"[consumer] job {job['job_id']} accepted by {worker['pod_id']}")
 
