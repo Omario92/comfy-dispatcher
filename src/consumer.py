@@ -81,15 +81,17 @@ async def _send_to_worker(worker: dict, job: dict):
     proxy_url = worker.get("proxy_url")
 
     if proxy_url:
-        # Gửi workflow trực tiếp vào ComfyUI /prompt API qua RunPod proxy
-        # RunPod proxy yêu cầu Bearer token để xác thực
-        url = f"{proxy_url}/prompt"
+        # Gửi job tới Worker Agent (port 9000) qua RunPod proxy
+        # Agent sẽ tự forward vào ComfyUI
+        url = proxy_url.replace("8188", "9000") + "/job"
         payload = {
-            "prompt": job.get("workflow", {}),
-            "client_id": job["job_id"],
+            "job_id": job["job_id"],
+            "workflow": job.get("workflow", {}),
+            "personality": job.get("personality", 1)
         }
+        # RunPod proxy yêu cầu Bearer token để xác thực
         headers = {"Authorization": f"Bearer {settings.RUNPOD_API_KEY}"}
-        logger.info(f"[consumer] sending job {job['job_id']} to ComfyUI proxy {proxy_url}")
+        logger.info(f"[consumer] sending job {job['job_id']} to Agent proxy {url}")
     else:
         # Worker Agent mode (port 9000)
         url = f"http://{worker['ip']}:{worker['port']}/run_job"

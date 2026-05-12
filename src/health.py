@@ -59,13 +59,6 @@ async def _check_all():
         ok = await _ping(w)
         if ok:
             await pool.update_activity(pod_id)
-            # Nếu đang busy, kiểm tra xem đã xong chưa (chỉ áp dụng cho Proxy mode)
-            if status == "busy" and w.get("proxy_url"):
-                is_really_idle = await _check_comfy_idle(w["proxy_url"])
-                if is_really_idle:
-                    logger.info(f"[health] pod {pod_id} finished work, promoting to idle")
-                    await pool.set_status(pod_id, "idle")
-
         age = int(time.time()) - w.get("last_active", 0)
         if age > settings.BOOT_TIMEOUT_SEC:
             logger.warning(f"[health] worker {pod_id} unreachable for {age}s, killing")
@@ -95,27 +88,5 @@ async def _ping_url(url: str) -> bool:
             # Chỉ coi là OK khi ComfyUI thực sự trả về 200
             # 404 từ RunPod proxy = pod không chạy hoặc route sai
             return r.status_code == 200
-    except Exception:
-        return False
-
-async def _check_comfy_idle(proxy_url: str) -> bool:
-    """Kiểm tra xem ComfyUI có thực sự đang rảnh không."""
-    try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            # RunPod proxy cần auth
-            headers = {}
-            if settings.RUNPOD_API_KEY:
-                headers["Authorization"] = f"Bearer {settings.RUNPOD_API_KEY}"
-            
-            r = await client.get(f"{proxy_url}/queue", headers=headers)
-            if r.status_code != 200:
-                return False
-            
-            data = r.json()
-            # ComfyUI /queue trả về: {"queue_running": [], "queue_pending": []}
-            running = data.get("queue_running", [])
-            pending = data.get("queue_pending", [])
-            
-            return len(running) == 0 and len(pending) == 0
     except Exception:
         return False
