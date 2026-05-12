@@ -77,18 +77,32 @@ async def _dispatch(job: dict):
 
 
 async def _send_to_worker(worker: dict, job: dict):
-    """Gửi job tới worker agent (port 9000), không phải ComfyUI port."""
-    url = f"http://{worker['ip']}:{worker['port']}/run_job"
-    payload = {
-        "job_id": job["job_id"],
-        "workflow": job["workflow"],
-        "personality": job.get("personality", 0),
-        "callback_url": f"{settings.DISPATCHER_PUBLIC_URL}/worker/done",
-    }
+    """Gửi job tới worker: ưu tiên proxy_url (ComfyUI API), fallback direct ip:port."""
+    proxy_url = worker.get("proxy_url")
+
+    if proxy_url:
+        # Gửi workflow trực tiếp vào ComfyUI /prompt API qua RunPod proxy
+        url = f"{proxy_url}/prompt"
+        payload = {
+            "prompt": job.get("workflow", {}),
+            "client_id": job["job_id"],
+        }
+        logger.info(f"[consumer] sending job {job['job_id']} to ComfyUI proxy {proxy_url}")
+    else:
+        # Worker Agent mode (port 9000)
+        url = f"http://{worker['ip']}:{worker['port']}/run_job"
+        payload = {
+            "job_id": job["job_id"],
+            "workflow": job["workflow"],
+            "personality": job.get("personality", 0),
+            "callback_url": f"{settings.DISPATCHER_PUBLIC_URL}/worker/done",
+        }
+        logger.info(f"[consumer] sending job {job['job_id']} to worker agent {worker['pod_id']}")
+
     async with httpx.AsyncClient(timeout=30) as client:
         r = await client.post(url, json=payload)
         r.raise_for_status()
-        logger.info(f"[consumer] job {job['job_id']} sent to {worker['pod_id']}")
+        logger.info(f"[consumer] job {job['job_id']} accepted by {worker['pod_id']}")
 
 
 async def _requeue(job: dict):

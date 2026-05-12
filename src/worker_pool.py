@@ -22,11 +22,23 @@ class WorkerPool:
             "status": "booting",
             "ip": "",
             "port": 0,
+            "proxy_url": "",
             "last_active": int(time.time()),
             "current_job": None,
         }
         await r.hset(settings.WORKERS_KEY, pod_id, json.dumps(data))
         logger.info(f"[pool] marked {pod_id} as booting")
+
+    async def register_proxy(self, pod_id: str, proxy_url: str):
+        """Auto-register pod đang booting bằng RunPod proxy URL."""
+        r = await get_redis()
+        raw = await r.hget(settings.WORKERS_KEY, pod_id)
+        data = json.loads(raw) if raw else {"pod_id": pod_id}
+        data["status"] = "idle"
+        data["proxy_url"] = proxy_url
+        data["last_active"] = int(time.time())
+        await r.hset(settings.WORKERS_KEY, pod_id, json.dumps(data))
+        logger.info(f"[pool] auto-registered {pod_id} via proxy {proxy_url}")
 
     async def register(self, pod_id: str, ip: str, port: int):
         r = await get_redis()
