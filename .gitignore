@@ -1,9 +1,13 @@
+# Environments
 .env
-__pycache__/
-*.pyc
-*.pyo
-venv/
-.venv/
+.venv
 env/
-.idea/
-.vscode/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
