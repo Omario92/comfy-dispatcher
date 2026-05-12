@@ -77,6 +77,12 @@ class WorkerPool:
         await self._update(pod_id, status="idle", current_job=None,
                           last_active=int(time.time()))
 
+    async def set_status(self, pod_id: str, status: str):
+        await self._update(pod_id, status=status, last_active=int(time.time()))
+
+    async def update_activity(self, pod_id: str):
+        await self._update(pod_id, last_active=int(time.time()))
+
     async def remove(self, pod_id: str):
         r = await get_redis()
         await r.hdel(settings.WORKERS_KEY, pod_id)
