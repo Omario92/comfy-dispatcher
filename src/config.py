@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     RUNPOD_TEMPLATE_ID: str
     RUNPOD_GPU_TYPE: str = "RTX4090,RTX5090,RTX Pro 4500, L40S"
     RUNPOD_API_URL: str = "https://api.runpod.io/graphql"
+    RUNPOD_NETWORK_VOLUME_ID: str = ""
 
     # ===== Autoscale =====
     MIN_WORKERS: int = 1

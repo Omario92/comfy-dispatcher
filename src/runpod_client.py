@@ -36,13 +36,15 @@ class RunPodClient:
                             "cloudType": cloud_type,
                             "gpuCount": 1,
                             "volumeInGb": 0,
-                            "containerDiskInGb": 50,
+                            "containerDiskInGb": 40,
                             "gpuTypeId": gpu,
                             "name": name,
                             "templateId": settings.RUNPOD_TEMPLATE_ID,
                             "ports": f"{settings.WORKER_AGENT_PORT}/http,8188/http",
                         }
                     }
+                    if settings.RUNPOD_NETWORK_VOLUME_ID:
+                        variables["input"]["networkVolumeId"] = settings.RUNPOD_NETWORK_VOLUME_ID
                     r = await client.post(
                         self.url,
                         json={"query": query, "variables": variables},
