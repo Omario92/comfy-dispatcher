@@ -37,6 +37,13 @@ async def _dispatch(job: dict):
     job_id = job["job_id"]
     logger.info(f"[consumer] dispatching job {job_id}")
 
+    # Nếu không có worker nào sẵn sàng (idle/booting) và chưa max, tự trigger scale up
+    counts = await pool.count_by_status()
+    if (counts["idle"] + counts["booting"] == 0) and (counts["total"] < settings.MAX_WORKERS):
+        logger.info(f"[consumer] trigger proactive scale_up for job {job_id}")
+        from autoscaler import scale_up
+        asyncio.create_task(scale_up())
+
     # Đợi idle worker (max 120s, đủ cho pod boot ~60-90s)
     worker = None
     for i in range(120):
