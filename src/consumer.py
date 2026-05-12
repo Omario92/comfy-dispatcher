@@ -19,7 +19,11 @@ async def consumer_loop():
             if res is None:
                 continue
             _, raw = res
-            job = json.loads(raw)
+            try:
+                job = json.loads(raw)
+            except json.JSONDecodeError:
+                logger.error(f"[consumer] DISCARD invalid JSON message: {raw!r}")
+                continue  # bỏ qua message lỗi, không requeue
             await _dispatch(job)
         except asyncio.CancelledError:
             logger.info("[consumer] stopped")
