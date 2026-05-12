@@ -25,30 +25,42 @@ class RunPodClient:
           }
         }
         """
-        variables = {
-            "input": {
-                "cloudType": "SECURE",
-                "gpuCount": 1,
-                "volumeInGb": 0,
-                "containerDiskInGb": 50,
-                "gpuTypeId": settings.RUNPOD_GPU_TYPE,
-                "name": name,
-                "templateId": settings.RUNPOD_TEMPLATE_ID,
-                "ports": f"{settings.WORKER_AGENT_PORT}/http,8188/http",
-            }
-        }
+        gpu_types = [g.strip() for g in settings.RUNPOD_GPU_TYPE.split(",") if g.strip()]
+        last_error = "No valid GPU types provided"
+        
         async with httpx.AsyncClient(timeout=30) as client:
-            r = await client.post(
-                self.url,
-                json={"query": query, "variables": variables},
-                headers=self.headers,
-            )
-            r.raise_for_status()
-            data = r.json()
-            if "errors" in data:
-                logger.error(f"RunPod create_pod error: {data['errors']}")
-                raise Exception(str(data["errors"]))
-            return data["data"]["podFindAndDeployOnDemand"]
+            for cloud_type in ["SECURE", "COMMUNITY"]:
+                for gpu in gpu_types:
+                    variables = {
+                        "input": {
+                            "cloudType": cloud_type,
+                            "gpuCount": 1,
+                            "volumeInGb": 0,
+                            "containerDiskInGb": 50,
+                            "gpuTypeId": gpu,
+                            "name": name,
+                            "templateId": settings.RUNPOD_TEMPLATE_ID,
+                            "ports": f"{settings.WORKER_AGENT_PORT}/http,8188/http",
+                        }
+                    }
+                    r = await client.post(
+                        self.url,
+                        json={"query": query, "variables": variables},
+                        headers=self.headers,
+                    )
+                    r.raise_for_status()
+                    data = r.json()
+                    
+                    if "errors" in data:
+                        last_error = str(data["errors"])
+                        logger.warning(f"RunPod failed for {gpu} ({cloud_type}): {last_error}")
+                        continue
+                    
+                    # Success
+                    logger.info(f"Successfully created pod with {gpu} in {cloud_type} cloud")
+                    return data["data"]["podFindAndDeployOnDemand"]
+                    
+        raise Exception(f"All GPU fallback attempts failed. Last error: {last_error}")
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
     async def terminate_pod(self, pod_id: str) -> bool:
