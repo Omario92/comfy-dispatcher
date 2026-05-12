@@ -1,4 +1,4 @@
-import asyncio
+"import asyncio
 import time
 import uuid
 from loguru import logger
@@ -56,8 +56,10 @@ async def scale_up():
     logger.info(f"[autoscale] SCALE UP → creating {name}")
     try:
         pod = await runpod.create_pod(name)
-        logger.info(f"[autoscale] created pod {pod['id']} (status={pod.get('desiredStatus')})")
-        # Worker sẽ tự register vào Redis khi boot xong
+        pod_id = pod["id"]
+        logger.info(f"[autoscale] created pod {pod_id} (status={pod.get('desiredStatus')})")
+        # Ghi ngay vào registry với status=booting để autoscaler không tạo thêm pod trùng
+        await pool.mark_booting(pod_id)
         return pod
     except Exception as e:
         logger.error(f"[autoscale] scale up FAILED: {e}")
