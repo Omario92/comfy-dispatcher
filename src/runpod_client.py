@@ -65,6 +65,56 @@ class RunPodClient:
         raise Exception(f"All GPU fallback attempts failed. Last error: {last_error}")
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+    async def stop_pod(self, pod_id: str) -> bool:
+        """Stop pod (giải phóng GPU nhưng giữ /workspace volume). Không tính tiền GPU khi stopped."""
+        query = """
+        mutation StopPod($input: PodStopInput!) {
+          podStop(input: $input) {
+            id
+            desiredStatus
+          }
+        }
+        """
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.post(
+                self.url,
+                json={"query": query, "variables": {"input": {"podId": pod_id}}},
+                headers=self.headers,
+            )
+            r.raise_for_status()
+            data = r.json()
+            if "errors" in data:
+                logger.error(f"RunPod stop error: {data['errors']}")
+                return False
+            logger.info(f"[runpod] stopped pod {pod_id}")
+            return True
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+    async def resume_pod(self, pod_id: str, gpu_count: int = 1) -> bool:
+        """Resume a stopped pod (restart GPU)."""
+        query = """
+        mutation ResumePod($input: PodResumeInput!) {
+          podResume(input: $input) {
+            id
+            desiredStatus
+          }
+        }
+        """
+        async with httpx.AsyncClient(timeout=30) as client:
+            r = await client.post(
+                self.url,
+                json={"query": query, "variables": {"input": {"podId": pod_id, "gpuCount": gpu_count}}},
+                headers=self.headers,
+            )
+            r.raise_for_status()
+            data = r.json()
+            if "errors" in data:
+                logger.error(f"RunPod resume error: {data['errors']}")
+                return False
+            logger.info(f"[runpod] resumed pod {pod_id}")
+            return True
+
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
     async def terminate_pod(self, pod_id: str) -> bool:
         query = """
         mutation TerminatePod($input: PodTerminateInput!) {

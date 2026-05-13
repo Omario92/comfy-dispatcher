@@ -58,27 +58,42 @@ async def _tick():
     logger.info(
         f"[autoscale] queue={queue_depth} "
         f"total={counts['total']} idle={counts['idle']} "
-        f"busy={counts['busy']} booting={counts['booting']} | "
+        f"busy={counts['busy']} booting={counts['booting']} "
+        f"stopped={counts['stopped']} | "
         f"{'PEAK' if is_peak else 'off-peak'} "
-        f"idle_timeout={idle_timeout}s min_workers={min_workers}"
+        f"pause={settings.PAUSE_TIMEOUT_SEC}s "
+        f"terminate={settings.TERMINATE_TIMEOUT_SEC}s "
+        f"min_workers={min_workers}"
     )
 
-    # ---- Warm pool: giữ min_workers (trong peak giữ PEAK_MIN_WORKERS) ----
+    # ---- Warm pool: giữ min_workers trong peak ----
     if min_workers > 0:
-        deficit = min_workers - counts["total"]
+        active = counts["idle"] + counts["booting"] + counts["busy"]
+        deficit = min_workers - active
         for _ in range(max(0, deficit)):
             if counts["total"] < settings.MAX_WORKERS:
                 await scale_up()
                 counts["total"] += 1
 
-    # ---- Scale up theo queue ----
+    # ---- Có job chờ: ưu tiên resume pod stopped trước khi tạo mới ----
     available = counts["idle"] + counts["booting"]
     if queue_depth > 0 and available == 0:
-        if counts["total"] < settings.MAX_WORKERS:
+        stopped = await pool.get_stopped_workers()
+        if stopped:
+            # Resume pod stopped đầu tiên (nhanh hơn tạo mới)
+            pod_to_resume = stopped[0]
+            logger.info(f"[autoscale] RESUME → {pod_to_resume['pod_id']} (stopped pod, faster than new)")
+            try:
+                ok = await runpod.resume_pod(pod_to_resume["pod_id"])
+                if ok:
+                    await pool.mark_booting(pod_to_resume["pod_id"])
+            except Exception as e:
+                logger.error(f"[autoscale] resume failed: {e}")
+        elif counts["total"] < settings.MAX_WORKERS:
             await scale_up()
 
-    # ---- Scale down idle workers ----
-    await _scale_down(counts, idle_timeout, min_workers)
+    # ---- 2-phase scale down idle workers ----
+    await _scale_down_two_phase(counts, min_workers)
 
 
 async def scale_up():
@@ -96,29 +111,64 @@ async def scale_up():
         return None
 
 
-async def _scale_down(counts: dict, idle_timeout: int, min_workers: int):
-    if counts["total"] <= min_workers:
+async def _scale_down_two_phase(counts: dict, min_workers: int):
+    """
+    2-phase idle lifecycle:
+      Phase 1: idle > PAUSE_TIMEOUT_SEC  → podStop (giải phóng GPU, giữ /workspace)
+      Phase 2: idle > TERMINATE_TIMEOUT_SEC → podTerminate (xóa hẳn)
+    """
+    # Tính tổng pod "active" (không kể stopped) để so min_workers
+    active_count = counts["idle"] + counts["busy"] + counts["booting"]
+    if active_count <= min_workers and counts["stopped"] == 0:
         return
+
     now = int(time.time())
     workers = await pool.list_workers()
-    idle_workers = sorted(
-        [
-            w for w in workers
-            if w["status"] == "idle"
-            and now - w["last_active"] > idle_timeout
-        ],
-        key=lambda w: w["last_active"],  # kill cái idle lâu nhất trước
-    )
-    excess = counts["total"] - min_workers
-    to_kill = idle_workers[:excess]
-    for w in to_kill:
-        logger.info(
-            f"[autoscale] SCALE DOWN → terminating {w['pod_id']} "
-            f"(idle {now - w['last_active']}s > timeout {idle_timeout}s)"
-        )
-        try:
-            await runpod.terminate_pod(w["pod_id"])
-            await pool.remove(w["pod_id"])
-        except Exception as e:
-            logger.error(f"[autoscale] terminate failed: {e}")
+
+    for w in workers:
+        status = w.get("status")
+        pod_id = w["pod_id"]
+        idle_sec = now - w.get("last_active", 0)
+
+        if status == "idle":
+            if idle_sec > settings.TERMINATE_TIMEOUT_SEC and active_count > min_workers:
+                # Phase 2: idle quá lâu → terminate hẳn
+                logger.info(
+                    f"[autoscale] TERMINATE → {pod_id} "
+                    f"(idle {idle_sec}s > terminate_timeout {settings.TERMINATE_TIMEOUT_SEC}s)"
+                )
+                try:
+                    await runpod.terminate_pod(pod_id)
+                    await pool.remove(pod_id)
+                    active_count -= 1
+                except Exception as e:
+                    logger.error(f"[autoscale] terminate failed: {e}")
+
+            elif idle_sec > settings.PAUSE_TIMEOUT_SEC:
+                # Phase 1: idle vừa đủ → stop pod (giữ /workspace)
+                logger.info(
+                    f"[autoscale] STOP (pause) → {pod_id} "
+                    f"(idle {idle_sec}s > pause_timeout {settings.PAUSE_TIMEOUT_SEC}s)"
+                )
+                try:
+                    ok = await runpod.stop_pod(pod_id)
+                    if ok:
+                        await pool.mark_stopped(pod_id)
+                        active_count -= 1
+                except Exception as e:
+                    logger.error(f"[autoscale] stop failed: {e}")
+
+        elif status == "stopped":
+            if idle_sec > settings.TERMINATE_TIMEOUT_SEC:
+                # Pod đã stopped quá lâu → terminate hẳn
+                logger.info(
+                    f"[autoscale] TERMINATE stopped pod → {pod_id} "
+                    f"(stopped {idle_sec}s > terminate_timeout {settings.TERMINATE_TIMEOUT_SEC}s)"
+                )
+                try:
+                    await runpod.terminate_pod(pod_id)
+                    await pool.remove(pod_id)
+                except Exception as e:
+                    logger.error(f"[autoscale] terminate stopped pod failed: {e}")
+
 

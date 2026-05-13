@@ -77,6 +77,14 @@ class WorkerPool:
         await self._update(pod_id, status="idle", current_job=None,
                           last_active=int(time.time()))
 
+    async def mark_stopped(self, pod_id: str):
+        """Pod đã bị stop (không có GPU, giữ /workspace). Có thể resume nhanh."""
+        await self._update(pod_id, status="stopped", current_job=None)
+
+    async def get_stopped_workers(self) -> list[dict]:
+        """Lấy danh sách pod đang stopped (để resume khi có job mới)."""
+        return [w for w in await self.list_workers() if w.get("status") == "stopped"]
+
     async def set_status(self, pod_id: str, status: str):
         await self._update(pod_id, status=status, last_active=int(time.time()))
 
@@ -99,7 +107,7 @@ class WorkerPool:
 
     async def count_by_status(self) -> dict:
         workers = await self.list_workers()
-        out = {"idle": 0, "busy": 0, "booting": 0, "dead": 0, "total": len(workers)}
+        out = {"idle": 0, "busy": 0, "booting": 0, "stopped": 0, "dead": 0, "total": len(workers)}
         for w in workers:
             s = w.get("status", "unknown")
             out[s] = out.get(s, 0) + 1

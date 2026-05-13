@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     OFF_PEAK_IDLE_TIMEOUT_SEC: int = 300   # 5 phút ngoài peak
     PEAK_MIN_WORKERS:          int = 1     # giữ ít nhất 1 GPU trong peak
 
+    # 2-phase idle lifecycle:
+    #   idle > PAUSE_TIMEOUT  → podStop  (giải phóng GPU, giữ /workspace)
+    #   idle > TERMINATE_TIMEOUT → podTerminate (xóa hoàn toàn)
+    # Testing defaults: 120s pause, 300s terminate
+    # Production: nên đặt PAUSE_TIMEOUT = PEAK_IDLE_TIMEOUT, TERMINATE = PAUSE * 2
+    PAUSE_TIMEOUT_SEC:     int = 120   # idle bao lâu thì stop pod
+    TERMINATE_TIMEOUT_SEC: int = 300   # idle bao lâu thì terminate pod
+
     # ===== Worker =====
     WORKER_AGENT_PORT: int = 9000  # FastAPI agent in pod
     WORKER_TIMEOUT_SEC: int = 600  # max render time
