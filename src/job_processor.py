@@ -143,26 +143,46 @@ async def process_job(job_id: str) -> None:
 async def _acquire_worker(job_id: str) -> dict:
     """
     Đợi idle worker. Nếu chưa có, trigger scale_up.
+    Retry scale_up mỗi 60 giây nếu vẫn không có worker.
     Timeout = BOOT_TIMEOUT_SEC.
     """
-    counts = await pool.count_by_status()
-    if (
-        counts["idle"] + counts["booting"] == 0
-        and counts["total"] < settings.MAX_WORKERS
-    ):
-        logger.info(f"[processor] no workers available for {job_id} → scale up")
-        asyncio.create_task(scale_up())
+    SCALE_UP_RETRY_INTERVAL = 60  # retry scale_up mỗi N giây
+
+    async def _try_scale_up(reason: str = ""):
+        counts = await pool.count_by_status()
+        if counts["total"] < settings.MAX_WORKERS:
+            logger.info(f"[processor] scale_up triggered for {job_id} ({reason})")
+            try:
+                await scale_up()
+            except Exception as e:
+                logger.warning(f"[processor] scale_up failed: {e}")
+
+    # Lần đầu: trigger ngay
+    await _try_scale_up("no workers on arrival")
 
     timeout = settings.BOOT_TIMEOUT_SEC
+    last_scale_up = 0  # seconds elapsed tại lần scale_up cuối
+
     for elapsed in range(timeout):
         worker = await pool.get_idle_worker()
         if worker:
             return worker
 
-        if elapsed % 15 == 0:
+        # Retry scale_up mỗi SCALE_UP_RETRY_INTERVAL giây
+        if elapsed > 0 and elapsed - last_scale_up >= SCALE_UP_RETRY_INTERVAL:
+            counts = await pool.count_by_status()
+            # Chỉ retry nếu thực sự không có pod nào đang boot/running
+            if counts["idle"] + counts["booting"] == 0:
+                await _try_scale_up(f"retry at {elapsed}s, still no workers")
+                last_scale_up = elapsed
+
+        if elapsed % 30 == 0:
+            counts = await pool.count_by_status()
             logger.info(
                 f"[processor] waiting for idle worker "
-                f"({elapsed}/{timeout}s) for job={job_id}"
+                f"({elapsed}/{timeout}s) for job={job_id} | "
+                f"total={counts['total']} idle={counts['idle']} "
+                f"booting={counts['booting']} stopped={counts['stopped']}"
             )
         await asyncio.sleep(1)
 
