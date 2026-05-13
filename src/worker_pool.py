@@ -64,9 +64,24 @@ class WorkerPool:
         return json.loads(raw) if raw else None
 
     async def get_idle_worker(self) -> dict | None:
-        for w in await self.list_workers():
-            if w["status"] == "idle":
-                return w
+        """
+        Trả về idle worker để nhận job.
+        Ưu tiên: Pod VIP (pinned) trước → Pod thường sau.
+        """
+        now = int(time.time())
+        workers = await self.list_workers()
+        idle = [w for w in workers if w["status"] == "idle"]
+
+        # Ưu tiên 1: Pod VIP (pinned_until > now)
+        vip = [w for w in idle if w.get("pinned_until", 0) > now]
+        if vip:
+            return vip[0]
+
+        # Ưu tiên 2: Pod thường (không pinned hoặc pin đã hết hạn)
+        normal = [w for w in idle if w.get("pinned_until", 0) <= now]
+        if normal:
+            return normal[0]
+
         return None
 
     async def mark_busy(self, pod_id: str, job_id: str):
