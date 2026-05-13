@@ -27,9 +27,14 @@ class RunPodClient:
         """
         gpu_types = [g.strip() for g in settings.RUNPOD_GPU_TYPE.split(",") if g.strip()]
         last_error = "No valid GPU types provided"
-        
+
+        # Ưu tiên cloud type từ config (đang test: COMMUNITY, production: SECURE)
+        primary_cloud = settings.RUNPOD_CLOUD_TYPE.upper()  # "COMMUNITY" hoặc "SECURE"
+        fallback_cloud = "SECURE" if primary_cloud == "COMMUNITY" else "COMMUNITY"
+        cloud_order = [primary_cloud, fallback_cloud]
+
         async with httpx.AsyncClient(timeout=30) as client:
-            for cloud_type in ["SECURE", "COMMUNITY"]:
+            for cloud_type in cloud_order:
                 for gpu in gpu_types:
                     variables = {
                         "input": {
@@ -53,16 +58,15 @@ class RunPodClient:
                     )
                     r.raise_for_status()
                     data = r.json()
-                    
+
                     if "errors" in data:
                         last_error = str(data["errors"])
                         logger.warning(f"RunPod failed for {gpu} ({cloud_type}): {last_error}")
                         continue
-                    
-                    # Success
+
                     logger.info(f"Successfully created pod with {gpu} in {cloud_type} cloud")
                     return data["data"]["podFindAndDeployOnDemand"]
-                    
+
         raise Exception(f"All GPU fallback attempts failed. Last error: {last_error}")
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
@@ -143,9 +147,10 @@ class RunPodClient:
                 return False
             return True
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
     async def execute_command(self, pod_id: str, command: str) -> dict:
-        """Chạy lệnh CLI trực tiếp trong Pod (podExec). Bỏ qua hoàn toàn Proxy."""
+        """Chạy lệnh CLI trực tiếp trong Pod (podExec). Bỏ qua hoàn toàn Proxy.
+        Không dùng @retry vì podExec không khả dụng trên Community Cloud — lỗi này là expected.
+        """
         query = """
         mutation ExecuteCommand($input: PodExecInput!) {
           podExec(input: $input) {

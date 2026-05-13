@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     # Chỉ lấy host có driver hỗ trợ CUDA >= version này
     # Image omaryo92/comfyui-deps:v2.0 yêu cầu CUDA >= 12.8
     RUNPOD_MIN_CUDA_VERSION: str = "12.8"
+    # "COMMUNITY" (rẻ hơn, dùng khi test) hoặc "SECURE" (ổn định, production)
+    RUNPOD_CLOUD_TYPE: str = "SECURE"
 
     # ===== Autoscale =====
     MIN_WORKERS: int = 0  # 0 = scale-to-zero
