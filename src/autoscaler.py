@@ -141,6 +141,11 @@ async def _scale_down_two_phase(counts: dict, min_workers: int):
                     await runpod.terminate_pod(pod_id)
                     await pool.remove(pod_id)
                     active_count -= 1
+                except LookupError:
+                    # Pod không tồn tại trên RunPod → xóa khỏi registry ngay
+                    logger.warning(f"[autoscale] ghost pod {pod_id} (POD_NOT_FOUND) → removing from registry")
+                    await pool.remove(pod_id)
+                    active_count -= 1
                 except Exception as e:
                     logger.error(f"[autoscale] terminate failed: {e}")
 
@@ -155,6 +160,11 @@ async def _scale_down_two_phase(counts: dict, min_workers: int):
                     if ok:
                         await pool.mark_stopped(pod_id)
                         active_count -= 1
+                except LookupError:
+                    # Pod không tồn tại trên RunPod → xóa khỏi registry ngay
+                    logger.warning(f"[autoscale] ghost pod {pod_id} (POD_NOT_FOUND) → removing from registry")
+                    await pool.remove(pod_id)
+                    active_count -= 1
                 except Exception as e:
                     logger.error(f"[autoscale] stop failed: {e}")
 

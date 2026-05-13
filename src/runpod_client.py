@@ -85,6 +85,10 @@ class RunPodClient:
             r.raise_for_status()
             data = r.json()
             if "errors" in data:
+                # Nếu pod không tồn tại → raise để autoscaler có thể remove khỏi registry
+                codes = [e.get("extensions", {}).get("code", "") for e in data["errors"]]
+                if "POD_NOT_FOUND" in codes:
+                    raise LookupError(f"POD_NOT_FOUND: {pod_id}")
                 logger.error(f"RunPod stop error: {data['errors']}")
                 return False
             logger.info(f"[runpod] stopped pod {pod_id}")
@@ -131,6 +135,10 @@ class RunPodClient:
             r.raise_for_status()
             data = r.json()
             if "errors" in data:
+                # Nếu pod không tồn tại → raise để autoscaler có thể remove khỏi registry
+                codes = [e.get("extensions", {}).get("code", "") for e in data["errors"]]
+                if "POD_NOT_FOUND" in codes:
+                    raise LookupError(f"POD_NOT_FOUND: {pod_id}")
                 logger.error(f"RunPod terminate error: {data['errors']}")
                 return False
             return True
