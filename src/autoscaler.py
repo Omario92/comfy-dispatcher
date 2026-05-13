@@ -131,6 +131,12 @@ async def _scale_down_two_phase(counts: dict, min_workers: int):
         idle_sec = now - w.get("last_active", 0)
 
         if status == "idle":
+            # Bỏ qua pod được ghim (pinned) cho VIP warmup
+            if w.get("pinned_until", 0) > now:
+                remaining = w["pinned_until"] - now
+                logger.debug(f"[autoscale] pod {pod_id} is PINNED, {remaining}s remaining — skipping")
+                continue
+
             if idle_sec > settings.TERMINATE_TIMEOUT_SEC and active_count > min_workers:
                 # Phase 2: idle quá lâu → terminate hẳn
                 logger.info(
@@ -169,6 +175,9 @@ async def _scale_down_two_phase(counts: dict, min_workers: int):
                     logger.error(f"[autoscale] stop failed: {e}")
 
         elif status == "stopped":
+            # Bỏ qua pod được ghim (pinned) cho VIP warmup
+            if w.get("pinned_until", 0) > now:
+                continue
             if idle_sec > settings.TERMINATE_TIMEOUT_SEC:
                 # Pod đã stopped quá lâu → terminate hẳn
                 logger.info(

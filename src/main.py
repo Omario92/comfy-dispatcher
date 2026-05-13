@@ -100,6 +100,90 @@ async def flush_workers():
     return {"flushed": len(workers)}
 
 
+class WarmupReq(BaseModel):
+    count: int = 3                  # Số pod VIP cần tạo
+    duration_hours: float = 4.0    # Ghim trong bao nhiêu giờ
+    # GPU types ưu tiên cho VIP (mặc định: RTX PRO 6000 → RTX 5090 → L40S)
+    gpu_types: list[str] = [
+        "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+        "NVIDIA GeForce RTX 5090",
+        "NVIDIA L40S",
+    ]
+
+
+@app.post("/admin/warmup")
+async def warmup_vip(req: WarmupReq):
+    """
+    Tạo N pod VIP với GPU mạnh và ghim chúng trong X giờ.
+    Autoscaler sẽ KHÔNG tắt các pod này trong thời gian được ghim.
+    Dùng trước khi mở đợt traffic lớn (demo / ra mắt / giờ cao điểm).
+    """
+    pinned_until = int(time.time()) + int(req.duration_hours * 3600)
+    expires_at = time.strftime("%H:%M:%S %d/%m/%Y", time.localtime(pinned_until))
+
+    original_gpu = settings.RUNPOD_GPU_TYPE
+    settings.RUNPOD_GPU_TYPE = ",".join(req.gpu_types)
+
+    created = []
+    failed = []
+
+    for i in range(req.count):
+        try:
+            pod = await runpod.create_pod(f"comfy-vip-{uuid.uuid4().hex[:8]}")
+            pod_id = pod["id"]
+            await pool.mark_booting(pod_id)
+            await pool._update(pod_id, pinned_until=pinned_until)
+            logger.info(f"[warmup] 🔒 pinned VIP pod {pod_id} until {expires_at}")
+            created.append(pod_id)
+        except Exception as e:
+            logger.error(f"[warmup] failed to create VIP pod #{i+1}: {e}")
+            failed.append(str(e))
+
+    settings.RUNPOD_GPU_TYPE = original_gpu
+
+    return {
+        "status": "warmup_initiated",
+        "created": len(created),
+        "failed": len(failed),
+        "pod_ids": created,
+        "pinned_until": expires_at,
+        "duration_hours": req.duration_hours,
+        "errors": failed,
+    }
+
+
+@app.get("/admin/warmup-status")
+async def warmup_status():
+    """Xem danh sách các pod VIP đang được ghim và thời gian còn lại."""
+    now = int(time.time())
+    workers = await pool.list_workers()
+    pinned = []
+    for w in workers:
+        pin = w.get("pinned_until", 0)
+        if pin > now:
+            remaining_min = (pin - now) // 60
+            pinned.append({
+                "pod_id": w["pod_id"],
+                "status": w.get("status"),
+                "pinned_until": time.strftime("%H:%M:%S %d/%m/%Y", time.localtime(pin)),
+                "remaining_minutes": remaining_min,
+            })
+    return {"total_pinned": len(pinned), "pinned_pods": pinned}
+
+
+@app.post("/admin/warmup-cancel")
+async def warmup_cancel():
+    """Giải phóng tất cả pin VIP sớm (autoscaler sẽ scale down bình thường)."""
+    workers = await pool.list_workers()
+    released = []
+    for w in workers:
+        if w.get("pinned_until", 0) > 0:
+            await pool._update(w["pod_id"], pinned_until=0)
+            released.append(w["pod_id"])
+    return {"released": len(released), "pod_ids": released}
+
+
 @app.post("/admin/cleanup-zombies")
 async def cleanup_zombies():
     """
