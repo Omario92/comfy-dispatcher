@@ -84,10 +84,12 @@ async def poll_result(endpoint: str, prompt_id: str, timeout_sec: int | None = N
     if timeout_sec is None:
         timeout_sec = settings.COMFY_RESULT_TIMEOUT_SEC
 
-    interval = settings.COMFY_POLL_INTERVAL_SEC
-    started = asyncio.get_event_loop().time()
-    headers = {"Authorization": f"Bearer {settings.RUNPOD_API_KEY}"}
-    elapsed_log = 0
+    interval  = settings.COMFY_POLL_INTERVAL_SEC
+    started   = asyncio.get_event_loop().time()
+    headers   = {"Authorization": f"Bearer {settings.RUNPOD_API_KEY}"}
+    elapsed_log     = 0
+    consecutive_404 = 0
+    MAX_CONSECUTIVE_404 = 20  # 20 × 5s = 100s liên tục 404 → ComfyUI crash → fail ngay
 
     while asyncio.get_event_loop().time() - started < timeout_sec:
         try:
@@ -95,18 +97,33 @@ async def poll_result(endpoint: str, prompt_id: str, timeout_sec: int | None = N
                 r = await client.get(f"{endpoint}/history/{prompt_id}", headers=headers)
 
             if r.status_code == 200:
+                consecutive_404 = 0  # reset khi có response OK
                 history = r.json()
                 if history and prompt_id in history:
                     logger.info(f"[comfy] ✅ result received for prompt_id={prompt_id}")
                     return history[prompt_id]
             else:
+                consecutive_404 += 1
                 logger.warning(
                     f"[comfy] poll /history returned {r.status_code} "
-                    f"(pod may be unreachable): {r.text[:120]}"
+                    f"(pod may be unreachable) [{consecutive_404}/{MAX_CONSECUTIVE_404}]: {r.text[:120]}"
                 )
+                # Fail fast: ComfyUI crash (404 liên tiếp > ngưỡng)
+                if consecutive_404 >= MAX_CONSECUTIVE_404:
+                    raise RuntimeError(
+                        f"ComfyUI unreachable for {consecutive_404 * interval}s "
+                        f"(got {r.status_code} × {consecutive_404}) — pod likely crashed"
+                    )
 
+        except RuntimeError:
+            raise  # re-raise fail-fast error (không retry)
         except Exception as e:
-            logger.warning(f"[comfy] poll error: {e}")
+            consecutive_404 += 1
+            logger.warning(f"[comfy] poll error [{consecutive_404}/{MAX_CONSECUTIVE_404}]: {e}")
+            if consecutive_404 >= MAX_CONSECUTIVE_404:
+                raise RuntimeError(
+                    f"ComfyUI unreachable for {consecutive_404 * interval}s — pod likely crashed: {e}"
+                )
 
         elapsed = int(asyncio.get_event_loop().time() - started)
         if elapsed - elapsed_log >= 60:
