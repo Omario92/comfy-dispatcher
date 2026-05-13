@@ -190,6 +190,29 @@ async def terminate_pod_by_id(body: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/admin/pause-pod")
+async def pause_pod_by_id(body: dict):
+    """
+    Tạm dừng (Stop) một pod cụ thể theo pod_id để tiết kiệm chi phí GPU.
+    Pod sẽ được giữ lại ổ cứng (/workspace) và trạng thái trong Redis chuyển thành 'stopped'.
+    Nếu pod này là VIP, nó vẫn giữ nguyên trạng thái 'pinned' và sẽ được tự động resume khi có request mới.
+    """
+    pod_id = body.get("pod_id") or body.get("podId")
+    if not pod_id:
+        raise HTTPException(status_code=400, detail="pod_id required")
+    try:
+        await runpod.stop_pod(pod_id)
+        await pool.mark_stopped(pod_id)
+        logger.info(f"[admin] manually paused pod {pod_id}")
+        return {"status": "paused", "pod_id": pod_id}
+    except LookupError:
+        await pool.remove(pod_id)
+        return {"status": "not_found", "pod_id": pod_id, "note": "already gone from RunPod"}
+    except Exception as e:
+        logger.exception(f"[admin] pause-pod failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/admin/warmup")
 async def warmup_vip(req: WarmupReq):
     """
