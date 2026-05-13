@@ -20,17 +20,30 @@ class Settings(BaseSettings):
     RUNPOD_NETWORK_VOLUME_ID: str = ""
 
     # ===== Autoscale =====
-    MIN_WORKERS: int = 0  # 0 = scale-to-zero (no warm pool)
+    MIN_WORKERS: int = 0  # 0 = scale-to-zero
     MAX_WORKERS: int = 10
     SCALE_UP_THRESHOLD: int = 10
-    IDLE_TIMEOUT_SEC: int = 900  # 15 min
+    IDLE_TIMEOUT_SEC: int = 120         # testing default (2 phút)
     AUTOSCALE_INTERVAL_SEC: int = 10
     BOOT_TIMEOUT_SEC: int = 600  # 10 min
+
+    # Peak hours (production) — set trong .env khi lên production
+    # Giờ VN (UTC+7): 8h-22h là peak, ngoài ra là off-peak
+    PEAK_HOURS_START: int | None = None  # VD: 8  (8:00 SA)
+    PEAK_HOURS_END:   int | None = None  # VD: 22 (10:00 PM)
+    PEAK_IDLE_TIMEOUT_SEC:     int = 900   # 15 phút trong peak
+    OFF_PEAK_IDLE_TIMEOUT_SEC: int = 300   # 5 phút ngoài peak
+    PEAK_MIN_WORKERS:          int = 1     # giữ ít nhất 1 GPU trong peak
 
     # ===== Worker =====
     WORKER_AGENT_PORT: int = 9000  # FastAPI agent in pod
     WORKER_TIMEOUT_SEC: int = 600  # max render time
     HEALTH_CHECK_INTERVAL_SEC: int = 30
+
+    # ===== ComfyUI Polling =====
+    COMFY_READY_TIMEOUT_SEC: int = 300    # max wait for ComfyUI to boot (5 min)
+    COMFY_RESULT_TIMEOUT_SEC: int = 1800  # max wait for render result (30 min)
+    COMFY_POLL_INTERVAL_SEC: int = 5      # interval between history polls
 
     # ===== URLs =====
     DISPATCHER_PUBLIC_URL: str = "" # https://comfy-dispatcher.up.railway.app

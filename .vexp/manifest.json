@@ -1,0 +1,29 @@
+{
+  "file_hashes": {
+    "Dockerfile": "c231668ea8e703a33b3d559e2058b88c96b1a8313888a304b5a346cad37f99e3",
+    "send_job.py": "81bcb9c45b81c889f5f7d57c76a923d33eefbb4d93dfb2e0166b0d2fee4172c1",
+    "src/autoscaler.py": "0c6b878899f9b8f9addee42fbaf15b8153342902c81be3a2db66ad706092b0d3",
+    "src/comfy_client.py": "b7cf2857821ded1d5e63739c1b3a96da96e241588875b68c2963189b8bb78ceb",
+    "src/config.py": "98456bc8c0e6a0de69916a4934a10061d322005fe6bf37b6853350ac64b896da",
+    "src/consumer.py": "f43de965a08456ab99cdb103a3271143868f42f4ee9df04fd6c0e22ae2b4bb9c",
+    "src/health.py": "b6703ec2f76bad28a4a207fa8583ac848f90a2a3c2e0996adedcaaaf804af57b",
+    "src/job_processor.py": "be1f87ceed0630e56260626a3609e550950a2157f0e747b4a163493b6b8d21c5",
+    "src/job_store.py": "cec2b9ca053ab42349de0185840053fcb6d32b6213c13b82cd5ff5b305ebd8be",
+    "src/main.py": "dd20dc1073e34ab2c734b721cd5dd65f9c42a072582c109ee56adcfb5bf7d563",
+    "src/r2_uploader.py": "4c9d578243d09ff3a129b9ba9ff314c1fa15c1eb928c779a8ca5a1882dfb44a7",
+    "src/redis_client.py": "72b1d5503a81c442ddab574736532830c43f96a86f4af360e0c1602a53c17385",
+    "src/runpod_client.py": "bdf11c8cd808c6a6fb9bc4d501bd007bb52aab49b88dd687abca32044fe43a34",
+    "src/worker_pool.py": "0a3786805fc16df92341c928da69604f4bdcd08bc9baa7b05eb5c52397ac5743",
+    "test_random_workflow.py": "47af3c1fce7fcab1a09709d7545a5db611e411df419f13c1cc33371b5324d85d",
+    "worker_agent.py": "ccb783cddfabc80f6d33057e38c92e4a62043a8b82ff26bc8d8b9d794d5b116a"
+  },
+  "indexed_at_commit": "7bc7c3a7a5144d1e8266e844e16ced31f7e5527e",
+  "indexed_at_timestamp": "2026-05-13T01:30:24.646003600+00:00",
+  "schema_version": 3,
+  "stats": {
+    "total_edges": 148,
+    "total_files": 16,
+    "total_nodes": 87
+  },
+  "vexp_version": "2.0.12"
+}

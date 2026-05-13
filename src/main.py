@@ -1,6 +1,7 @@
 import asyncio
 import json
 import time
+import uuid
 import httpx
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
@@ -12,6 +13,7 @@ from autoscaler import autoscale_loop
 from health import health_loop
 from worker_pool import pool
 from job_store import jobs
+from job_processor import process_job
 from redis_client import get_redis, close_redis
 from config import settings
 
@@ -61,11 +63,18 @@ class DoneReq(BaseModel):
 
 
 class SubmitJobReq(BaseModel):
-    """Dùng cho trường hợp client (vd: n8n) push job qua HTTP thay vì LPUSH thẳng Redis."""
-    job_id: str
-    personality: int
-    user_image_url: str
-    workflow: dict
+    """
+    [LEGACY] n8n đã chuẩn bị sẵn full workflow JSON + inject image_url vào node 413.
+    Dispatcher tự sinh job_id và chạy background.
+    """
+    # --- Required ---
+    workflow: dict                   # Full ComfyUI workflow JSON (đã inject image_url)
+    image_url: str                   # URL ảnh gốc (lưu cho audit)
+
+    # --- Optional ---
+    personality: str | int = ""      # personality label hoặc index (0-5)
+    user_id: str = ""
+    callback_url: str = ""           # n8n webhook URL để nhận result
 
 
 # ============ ADMIN ============
@@ -128,25 +137,41 @@ async def worker_done(req: DoneReq):
     return {"ok": True}
 
 
-# ============ JOB SUBMISSION (alternative to direct Redis push) ============
+# ============ JOB SUBMISSION ============
 
 @app.post("/jobs")
 async def submit_job(req: SubmitJobReq):
     """
-    Endpoint để n8n submit job qua HTTP thay vì gọi Upstash REST trực tiếp.
-    Đảm bảo job state được persist ngay khi enqueue.
+    n8n gọi endpoint này sau khi đã:
+      1. Random chọn workflow (0-5 personality)
+      2. Download workflow JSON từ Google Drive
+      3. Inject image_url vào node 413 (LoadImageFromHttpURL)
+
+    Dispatcher:
+      - Tự sinh job_id
+      - Lưu job vào Redis ngay lập tức
+      - Trả { ok, job_id, status } ngay về n8n (không chờ render)
+      - Chạy full pipeline (pod → ComfyUI → R2 → callback) trong background
     """
-    await jobs.create(req.job_id, req.personality, req.user_image_url)
-    r = await get_redis()
-    await r.lpush(settings.QUEUE_KEY, json.dumps({
-        "job_id": req.job_id,
-        "personality": req.personality,
-        "user_image_url": req.user_image_url,
-        "workflow": req.workflow,
-        "retries": 0,
-    }))
-    logger.info(f"[submit] enqueued {req.job_id} personality={req.personality}")
-    return {"job_id": req.job_id, "status": "queued"}
+    job_id = f"job_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
+
+    await jobs.create(
+        job_id=job_id,
+        personality=req.personality,
+        user_image_url=req.image_url,
+        workflow=req.workflow,
+        callback_url=req.callback_url,
+        user_id=req.user_id,
+    )
+
+    # Fire-and-forget — KHÔNG await, n8n nhận job_id ngay lập tức
+    asyncio.create_task(process_job(job_id))
+
+    logger.info(
+        f"[submit] job_id={job_id} personality={req.personality} "
+        f"user_id={req.user_id} callback={bool(req.callback_url)}"
+    )
+    return {"ok": True, "job_id": job_id, "status": "queued"}
 
 
 # ============ STATUS / MONITORING ============
