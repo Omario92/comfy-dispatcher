@@ -407,6 +407,42 @@ async def fix_busy_pods():
     return {"status": "success", "reset_to_idle": fixed}
 
 
+@app.post("/admin/check-comfy-exec")
+async def check_comfy_exec(body: dict):
+    """
+    Dùng podExec (trực tiếp trên Pod, bỏ qua Proxy) để kiểm tra /history của ComfyUI.
+    Cần truyền: pod_id, prompt_id.
+    Lưu ý: podExec KHÔNG hoạt động trên Community Cloud.
+    """
+    pod_id = body.get("pod_id")
+    prompt_id = body.get("prompt_id")
+    if not pod_id or not prompt_id:
+        raise HTTPException(status_code=400, detail="Required: pod_id, prompt_id")
+
+    # Gọi curl http://127.0.0.1:8188/history/{prompt_id} bên trong pod
+    cmd = f"curl -s http://127.0.0.1:8188/history/{prompt_id}"
+    logger.info(f"[admin] check-comfy-exec pod_id={pod_id} cmd={cmd}")
+    
+    result = await runpod.execute_command(pod_id, cmd)
+    if result.get("exitCode") != 0:
+        return {"status": "error", "message": "curl failed inside pod", "exec_result": result}
+        
+    try:
+        import json
+        stdout = result.get("stdout", "")
+        # RunPod podExec đôi khi trả về string có ký tự escape hoặc không phải JSON sạch
+        # Cố gắng parse
+        history = json.loads(stdout)
+        is_done = prompt_id in history
+        return {
+            "status": "success", 
+            "is_done": is_done, 
+            "history_data": history
+        }
+    except Exception as e:
+        return {"status": "parse_error", "message": str(e), "stdout": result.get("stdout")}
+
+
 # ============ WORKER CALLBACKS ============
 
 @app.post("/worker/register")
