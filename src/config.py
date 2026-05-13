@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     HEALTH_CHECK_INTERVAL_SEC: int = 30
 
     # ===== ComfyUI Polling =====
-    COMFY_READY_TIMEOUT_SEC: int = 300    # max wait for ComfyUI to boot (5 min)
+    COMFY_READY_TIMEOUT_SEC: int = 900    # max wait for ComfyUI to boot (15 min — WAN 14B load từ /workspace)
     COMFY_RESULT_TIMEOUT_SEC: int = 1800  # max wait for render result (30 min)
     COMFY_POLL_INTERVAL_SEC: int = 5      # interval between history polls
 
