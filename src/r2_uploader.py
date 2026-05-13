@@ -17,6 +17,16 @@ from config import settings
 
 def _make_s3():
     """Tạo boto3 S3 client trỏ vào Cloudflare R2."""
+    if not settings.R2_ENDPOINT:
+        raise RuntimeError(
+            "R2_ENDPOINT is not set. "
+            "Add R2_ENDPOINT, R2_ACCESS_KEY, R2_SECRET_KEY to Railway environment variables."
+        )
+    if not settings.R2_ACCESS_KEY or not settings.R2_SECRET_KEY:
+        raise RuntimeError(
+            "R2_ACCESS_KEY or R2_SECRET_KEY is not set. "
+            "Add them to Railway environment variables."
+        )
     return boto3.client(
         "s3",
         endpoint_url=settings.R2_ENDPOINT,
