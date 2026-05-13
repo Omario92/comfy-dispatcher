@@ -150,15 +150,17 @@ async def _acquire_worker(job_id: str) -> dict:
 
     async def _try_scale_up(reason: str = ""):
         counts = await pool.count_by_status()
-        if counts["total"] < settings.MAX_WORKERS:
+        if counts["idle"] + counts["booting"] == 0 and counts["total"] < settings.MAX_WORKERS:
             logger.info(f"[processor] scale_up triggered for {job_id} ({reason})")
             try:
                 await scale_up()
             except Exception as e:
                 logger.warning(f"[processor] scale_up failed: {e}")
 
-    # Lần đầu: trigger ngay
-    await _try_scale_up("no workers on arrival")
+    # Kiểm tra ngay lần đầu
+    counts = await pool.count_by_status()
+    if counts["idle"] + counts["booting"] == 0:
+        await _try_scale_up("no idle workers on arrival")
 
     timeout = settings.BOOT_TIMEOUT_SEC
     last_scale_up = 0  # seconds elapsed tại lần scale_up cuối
