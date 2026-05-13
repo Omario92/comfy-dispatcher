@@ -90,6 +90,64 @@ class SubmitJobReq(BaseModel):
 
 # ============ ADMIN ============
 
+@app.post("/admin/job-recover")
+async def job_recover(body: dict):
+    """
+    Recover thủ công job bị stuck 'running' khi ComfyUI đã xong nhưng Dispatcher không nhận được.
+    Cần truyền: job_id + prompt_id (lấy từ Redis) + comfy_endpoint (proxy URL của pod).
+    """
+    from comfy_client import build_view_url, extract_output_files, pick_primary_output
+    from r2_uploader import download_and_upload_r2
+    from job_processor import _callback_n8n, _guess_content_type
+
+    job_id   = body.get("job_id", "")
+    prompt_id = body.get("prompt_id", "")
+    comfy_endpoint = body.get("comfy_endpoint", "")
+
+    if not all([job_id, prompt_id, comfy_endpoint]):
+        raise HTTPException(status_code=400, detail="Required: job_id, prompt_id, comfy_endpoint")
+
+    headers = {"Authorization": f"Bearer {settings.RUNPOD_API_KEY}"}
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            r = await client.get(f"{comfy_endpoint}/history/{prompt_id}", headers=headers)
+            r.raise_for_status()
+            history = r.json()
+
+        if prompt_id not in history:
+            raise HTTPException(status_code=404, detail=f"prompt_id {prompt_id} not found in ComfyUI history")
+
+        history_item = history[prompt_id]
+        files = extract_output_files(history_item)
+        output_file = pick_primary_output(files)
+
+        if not output_file:
+            raise HTTPException(status_code=404, detail="No output file in history")
+
+        view_url = build_view_url(comfy_endpoint, output_file)
+        ext = output_file["filename"].rsplit(".", 1)[-1] if "." in output_file["filename"] else "mp4"
+        r2_key = f"outputs/{job_id}/{output_file['filename']}"
+        result_url = await download_and_upload_r2(view_url, r2_key, _guess_content_type(ext))
+
+        job_data = await jobs.get(job_id)
+        personality = (job_data or {}).get("personality", "")
+        await jobs.set_done(job_id, result_url, img_personality=str(personality))
+
+        pod_id = (job_data or {}).get("pod_id", "")
+        await _callback_n8n(job_id, "done", result_url, None, pod_id, prompt_id)
+        if pod_id:
+            await pool.mark_idle(pod_id)
+
+        logger.info(f"[admin] ✅ job-recover: job={job_id} → {result_url}")
+        return {"status": "recovered", "job_id": job_id, "result_url": result_url}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception(f"[admin] job-recover failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/admin/flush-workers")
 async def flush_workers():
     """Xóa toàn bộ stale workers khỏi Redis registry (dùng khi debug)."""

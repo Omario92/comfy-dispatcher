@@ -93,7 +93,9 @@ async def poll_result(endpoint: str, prompt_id: str, timeout_sec: int | None = N
     headers   = {"Authorization": f"Bearer {settings.RUNPOD_API_KEY}"}
     elapsed_log     = 0
     consecutive_404 = 0
-    MAX_CONSECUTIVE_404 = 20  # 20 × 5s = 100s liên tục 404 → ComfyUI crash → fail ngay
+    # 60 × 5s = 300s (5 phút) liên tục 404 → mới coi là crash
+    # RunPod proxy có thể 404 vài phút khi model đang load — không nên fail sớm
+    MAX_CONSECUTIVE_404 = 60
 
     while asyncio.get_event_loop().time() - started < timeout_sec:
         try:
