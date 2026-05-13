@@ -103,12 +103,15 @@ async def flush_workers():
 class WarmupReq(BaseModel):
     count: int = 3                  # Số pod VIP cần tạo
     duration_hours: float = 4.0    # Ghim trong bao nhiêu giờ
+    # VIP luôn dùng SECURE cloud để đảm bảo có GPU mạnh
+    cloud_type: str = "SECURE"
     # GPU types ưu tiên cho VIP (mặc định: RTX PRO 6000 → RTX 5090 → L40S)
     gpu_types: list[str] = [
         "NVIDIA RTX PRO 6000 Blackwell Server Edition",
         "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
         "NVIDIA GeForce RTX 5090",
         "NVIDIA L40S",
+        "NVIDIA A100 80GB PCIe",
     ]
 
 
@@ -123,7 +126,9 @@ async def warmup_vip(req: WarmupReq):
     expires_at = time.strftime("%H:%M:%S %d/%m/%Y", time.localtime(pinned_until))
 
     original_gpu = settings.RUNPOD_GPU_TYPE
+    original_cloud = settings.RUNPOD_CLOUD_TYPE
     settings.RUNPOD_GPU_TYPE = ",".join(req.gpu_types)
+    settings.RUNPOD_CLOUD_TYPE = req.cloud_type.upper()  # VIP dùng SECURE
 
     created = []
     failed = []
@@ -137,10 +142,14 @@ async def warmup_vip(req: WarmupReq):
             logger.info(f"[warmup] 🔒 pinned VIP pod {pod_id} until {expires_at}")
             created.append(pod_id)
         except Exception as e:
-            logger.error(f"[warmup] failed to create VIP pod #{i+1}: {e}")
-            failed.append(str(e))
+            # Unwrap tenacity RetryError để lấy lỗi gốc
+            cause = getattr(e, "last_attempt", None)
+            real_err = str(cause.exception()) if cause else str(e)
+            logger.error(f"[warmup] failed to create VIP pod #{i+1}: {real_err}")
+            failed.append(real_err)
 
     settings.RUNPOD_GPU_TYPE = original_gpu
+    settings.RUNPOD_CLOUD_TYPE = original_cloud
 
     return {
         "status": "warmup_initiated",
