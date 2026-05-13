@@ -15,6 +15,7 @@ from worker_pool import pool
 from job_store import jobs
 from job_processor import process_job
 from redis_client import get_redis, close_redis
+from runpod_client import runpod
 from config import settings
 
 
