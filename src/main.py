@@ -352,12 +352,18 @@ async def reconcile_workers():
                 await pool.remove(pod_id)
                 removed.append(pod_id)
 
-            elif rp_state in ("EXITED", "STOPPED") and redis_status in ("busy", "booting"):
-                # Pod đã dừng nhưng Redis vẫn đánh dấu busy/booting
+            elif rp_state in ("EXITED", "STOPPED") and redis_status in ("busy", "booting", "idle"):
+                # Pod đã dừng nhưng Redis vẫn đánh dấu busy/booting/idle
                 # → mark_stopped (KHÔNG phải idle) để autoscaler quyết định resume hay terminate
                 logger.warning(f"[reconcile] pod {pod_id} is {rp_state} on RunPod but '{redis_status}' in Redis → mark stopped")
                 await pool.mark_stopped(pod_id)
                 fixed.append({"pod_id": pod_id, "was": redis_status, "runpod_state": rp_state, "now": "stopped"})
+
+            elif redis_status == "dead":
+                # Pod bị health_loop mark là dead do mất kết nối quá lâu
+                logger.warning(f"[reconcile] pod {pod_id} is 'dead' in Redis → removing")
+                await pool.remove(pod_id)
+                removed.append(pod_id)
 
         return {
             "status": "reconcile_complete",
@@ -368,6 +374,37 @@ async def reconcile_workers():
     except Exception as e:
         logger.exception(f"[admin] reconcile failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/admin/fix-busy")
+async def fix_busy_pods():
+    """
+    Tìm những pod đang bị đánh dấu là 'busy' nhưng thực tế không có job nào đang chạy
+    (hoặc job đã xong/lỗi) và reset chúng về 'idle'.
+    """
+    workers = await pool.list_workers()
+    fixed = []
+    for w in workers:
+        if w.get("status") == "busy":
+            pod_id = w["pod_id"]
+            current_job = w.get("current_job")
+            
+            # Nếu pod không có job_id gán kèm, chắc chắn là lỗi state
+            if not current_job:
+                await pool.mark_idle(pod_id)
+                fixed.append({"pod_id": pod_id, "reason": "no_current_job"})
+                continue
+                
+            # Kiểm tra trạng thái job
+            job_data = await jobs.get(current_job)
+            if not job_data or job_data.get("status") in ("done", "failed"):
+                await pool.mark_idle(pod_id)
+                fixed.append({
+                    "pod_id": pod_id, 
+                    "reason": f"job_{job_data.get('status') if job_data else 'not_found'}"
+                })
+
+    return {"status": "success", "reset_to_idle": fixed}
 
 
 # ============ WORKER CALLBACKS ============
