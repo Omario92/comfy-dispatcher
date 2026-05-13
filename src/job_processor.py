@@ -59,7 +59,7 @@ async def process_job(job_id: str) -> None:
 
         # ── Step 2: Đợi ComfyUI ready ────────────────────────────────
         ready = await wait_comfyui_ready(
-            comfy_endpoint, timeout_sec=settings.COMFY_READY_TIMEOUT_SEC
+            comfy_endpoint, pod_id=pod_id, timeout_sec=settings.COMFY_READY_TIMEOUT_SEC
         )
         if not ready:
             raise TimeoutError(

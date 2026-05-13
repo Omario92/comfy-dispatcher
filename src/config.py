@@ -43,8 +43,8 @@ class Settings(BaseSettings):
     #   idle > TERMINATE_TIMEOUT → podTerminate (xóa hoàn toàn)
     # Testing defaults: 120s pause, 300s terminate
     # Production: nên đặt PAUSE_TIMEOUT = PEAK_IDLE_TIMEOUT, TERMINATE = PAUSE * 2
-    PAUSE_TIMEOUT_SEC:     int = 120   # idle bao lâu thì stop pod
-    TERMINATE_TIMEOUT_SEC: int = 300   # idle bao lâu thì terminate pod
+    PAUSE_TIMEOUT_SEC:     int = 600   # idle 10 phút mới stop pod
+    TERMINATE_TIMEOUT_SEC: int = 1200  # idle 20 phút mới xóa hẳn
 
     # ===== Worker =====
     WORKER_AGENT_PORT: int = 9000  # FastAPI agent in pod

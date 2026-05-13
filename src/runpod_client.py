@@ -143,6 +143,31 @@ class RunPodClient:
                 return False
             return True
 
+    @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
+    async def execute_command(self, pod_id: str, command: str) -> dict:
+        """Chạy lệnh CLI trực tiếp trong Pod (podExec). Bỏ qua hoàn toàn Proxy."""
+        query = """
+        mutation ExecuteCommand($input: PodExecInput!) {
+          podExec(input: $input) {
+            stdout
+            stderr
+            exitCode
+          }
+        }
+        """
+        async with httpx.AsyncClient(timeout=60) as client:
+            r = await client.post(
+                self.url,
+                json={"query": query, "variables": {"input": {"podId": pod_id, "command": command}}},
+                headers=self.headers,
+            )
+            r.raise_for_status()
+            data = r.json()
+            if "errors" in data:
+                logger.error(f"RunPod exec error: {data['errors']}")
+                return {"stdout": "", "stderr": str(data["errors"]), "exitCode": 1}
+            return data["data"]["podExec"]
+
     async def get_pod(self, pod_id: str) -> dict | None:
         query = """
         query Pod($podId: String!) {
