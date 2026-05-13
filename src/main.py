@@ -64,17 +64,26 @@ class DoneReq(BaseModel):
 
 class SubmitJobReq(BaseModel):
     """
-    [LEGACY] n8n đã chuẩn bị sẵn full workflow JSON + inject image_url vào node 413.
-    Dispatcher tự sinh job_id và chạy background.
+    Backward-compatible: chấp nhận cả field cũ của n8n (user_image_url, job_id)
+    lẫn field mới (image_url). Dispatcher luôn tự sinh job_id riêng.
     """
-    # --- Required ---
-    workflow: dict                   # Full ComfyUI workflow JSON (đã inject image_url)
-    image_url: str                   # URL ảnh gốc (lưu cho audit)
+    model_config = {"extra": "allow"}   # bỏ qua job_id và field lạ từ n8n
 
-    # --- Optional ---
-    personality: str | int = ""      # personality label hoặc index (0-5)
+    workflow: dict                       # Full ComfyUI JSON (đã inject image_url)
+
+    # Chấp nhận cả 2 tên field — ít nhất 1 trong 2 phải có
+    image_url:      str = ""            # field mới
+    user_image_url: str = ""            # field cũ của n8n
+
+    personality: str | int = ""
     user_id: str = ""
-    callback_url: str = ""           # n8n webhook URL để nhận result
+    callback_url: str = ""
+
+    @property
+    def resolved_image_url(self) -> str:
+        """Lấy image URL từ field mới hoặc field cũ, validate không rỗng."""
+        url = self.image_url or self.user_image_url
+        return url.strip()
 
 
 # ============ ADMIN ============
@@ -155,10 +164,14 @@ async def submit_job(req: SubmitJobReq):
     """
     job_id = f"job_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
 
+    image_url = req.resolved_image_url
+    if not image_url:
+        raise HTTPException(400, "image_url (or user_image_url) is required")
+
     await jobs.create(
         job_id=job_id,
         personality=req.personality,
-        user_image_url=req.image_url,
+        user_image_url=image_url,
         workflow=req.workflow,
         callback_url=req.callback_url,
         user_id=req.user_id,
@@ -169,7 +182,8 @@ async def submit_job(req: SubmitJobReq):
 
     logger.info(
         f"[submit] job_id={job_id} personality={req.personality} "
-        f"user_id={req.user_id} callback={bool(req.callback_url)}"
+        f"user_id={req.user_id} callback={bool(req.callback_url)} "
+        f"image={image_url[:60]}"
     )
     return {"ok": True, "job_id": job_id, "status": "queued"}
 
