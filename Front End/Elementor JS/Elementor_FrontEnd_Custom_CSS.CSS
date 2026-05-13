@@ -46,10 +46,11 @@ body:not(.elementor-editor-active) #step-06 {
 
 @media (max-width: 767px) {
     .hero-full-height {
-        height: calc(100vh - 30px) !important;
+        height: auto !important;
         min-height: calc(100vh - 30px) !important;
-        max-height: calc(100vh - 30px) !important;
-        overflow: hidden !important;
+        /* Xóa max-height và đổi overflow để nội dung dài (như step 06) không bị cắt */
+        max-height: none !important;
+        overflow: visible !important;
     }
 }
 
