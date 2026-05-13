@@ -13,6 +13,8 @@
 ## Recent Changes
 - [2026-05-12] Setup Dispatcher Service trên Railway với FastAPI, Redis và RunPod API integration (Giai đoạn 6).
 - [2026-05-13] Refactor async job flow: POST /jobs tự sinh job_id và trả ngay về n8n, background pipeline (job_processor.py) xử lý pod → ComfyUI → R2 → callback. Thêm comfy_client.py (submit/poll ComfyUI), r2_uploader.py (upload boto3). n8n chỉ cần gửi full workflow JSON đã inject image_url + callback_url.
+- [2026-05-13] Bugfix series: (1) health loop không được kill busy pod đang render; (2) mark pod busy ngay lập tức sau khi acquire để tránh race condition với autoscaler; (3) health loop không được reset last_active của idle pod — lỗi này khiến autoscaler idle timeout không bao giờ trigger; (4) thêm R2 credential validation rõ ràng.
+- [2026-05-13] Stability & Integration Fixes: (1) Fix JSON parse error (frontend) bằng cách unwrap array response từ n8n; (2) Fix PHP Proxy cURL output leak gây hỏng JSON response; (3) Thêm fail-fast logic phát hiện ComfyUI crash (404); (4) Tự động xóa Ghost Pods (POD_NOT_FOUND) khỏi registry; (5) Tăng COMFY_READY_TIMEOUT lên 900s cho các model lớn như WAN 14B.
 
 
 ## vexp <!-- vexp v2.0.12 -->
