@@ -77,6 +77,7 @@ class SubmitJobReq(BaseModel):
 
     personality: str | int = ""
     user_id: str = ""
+    job_id: str = ""
     callback_url: str = ""
 
     @property
@@ -162,7 +163,8 @@ async def submit_job(req: SubmitJobReq):
       - Trả { ok, job_id, status } ngay về n8n (không chờ render)
       - Chạy full pipeline (pod → ComfyUI → R2 → callback) trong background
     """
-    job_id = f"job_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
+    # Ưu tiên dùng job_id từ n8n/PHP gửi lên (lhfs_xxx), nếu không có mới tự sinh
+    job_id = req.job_id or f"job_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
 
     image_url = req.resolved_image_url
     if not image_url:
