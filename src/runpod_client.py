@@ -41,6 +41,7 @@ class RunPodClient:
                             "name": name,
                             "templateId": settings.RUNPOD_TEMPLATE_ID,
                             "ports": f"{settings.WORKER_AGENT_PORT}/http,8188/http",
+                            "minCudaVersion": settings.RUNPOD_MIN_CUDA_VERSION,
                         }
                     }
                     if settings.RUNPOD_NETWORK_VOLUME_ID:

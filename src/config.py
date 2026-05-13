@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     RUNPOD_GPU_TYPE: str = "NVIDIA GeForce RTX 5090,NVIDIA L40S,NVIDIA A100 80GB PCIe"
     RUNPOD_API_URL: str = "https://api.runpod.io/graphql"
     RUNPOD_NETWORK_VOLUME_ID: str = ""
+    # Chỉ lấy host có driver hỗ trợ CUDA >= version này
+    # Image omaryo92/comfyui-deps:v2.0 yêu cầu CUDA >= 12.8
+    RUNPOD_MIN_CUDA_VERSION: str = "12.8"
 
     # ===== Autoscale =====
     MIN_WORKERS: int = 0  # 0 = scale-to-zero
