@@ -65,6 +65,43 @@ async def _check_all():
             # Chỉ update last_active cho busy pod khi còn reachable
             if ok:
                 await pool.update_activity(pod_id)
+            
+            # --- Auto Recovery & Phantom Fix ---
+            current_job = w.get("current_job")
+            if not current_job:
+                logger.warning(f"[health] Pod {pod_id} is busy but has no current_job. Force idle.")
+                await pool.mark_idle(pod_id)
+            else:
+                from job_store import JobStore
+                jobs_store = JobStore()
+                job_data = await jobs_store.get(current_job)
+                
+                if not job_data or job_data.get("status") in ("done", "failed"):
+                    logger.warning(f"[health] Pod {pod_id} is busy but job {current_job} is done/failed/missing. Force idle.")
+                    await pool.mark_idle(pod_id)
+                elif job_data.get("status") in ("running", "processing", "waiting_comfyui"):
+                    updated_at = int(job_data.get("updated_at", 0))
+                    job_age = int(time.time()) - updated_at
+                    
+                    if job_age > 300: # 5 phút
+                        # Tránh spam log liên tục mỗi 30s bằng cách chỉ log 1 lần mỗi 2.5 phút
+                        if job_age % 150 < 30: 
+                            logger.warning(f"[health] Job {current_job} on pod {pod_id} stuck for {job_age}s. Auto-triggering recovery...")
+                        
+                        import httpx
+                        import os
+                        import asyncio
+                        async def _trigger_recover():
+                            port = os.getenv("PORT", "8000")
+                            try:
+                                async with httpx.AsyncClient(timeout=10) as client:
+                                    # Lặng lẽ gọi endpoint để thử check history
+                                    await client.post(f"http://127.0.0.1:{port}/admin/job-recover", json={"job_id": current_job})
+                            except Exception:
+                                pass # Nếu 404 (chưa xong) thì kệ, chờ cycle sau
+                        
+                        asyncio.create_task(_trigger_recover())
+            
             if age > settings.BOOT_TIMEOUT_SEC * 3:  # 30 phút grace cho render
                 logger.warning(
                     f"[health] busy pod {pod_id} unreachable for {age}s "
