@@ -101,11 +101,10 @@ async def flush_workers():
 
 
 class WarmupReq(BaseModel):
-    count: int = 3                  # Số pod VIP cần tạo
-    duration_hours: float = 4.0    # Ghim trong bao nhiêu giờ
-    # VIP luôn dùng SECURE cloud để đảm bảo có GPU mạnh
+    count: int = 3
+    duration_hours: float = 4.0
     cloud_type: str = "SECURE"
-    # GPU types ưu tiên cho VIP (mặc định: RTX PRO 6000 → RTX 5090 → L40S)
+    # Chỉ GPU cao cấp — không tự fallback xuống card rẻ hơn
     gpu_types: list[str] = [
         "NVIDIA RTX PRO 6000 Blackwell Server Edition",
         "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
@@ -113,6 +112,24 @@ class WarmupReq(BaseModel):
         "NVIDIA L40S",
         "NVIDIA A100 80GB PCIe",
     ]
+
+
+@app.post("/admin/terminate-pod")
+async def terminate_pod_by_id(body: dict):
+    """Terminate một pod cụ thể theo pod_id."""
+    pod_id = body.get("podId") or body.get("pod_id")
+    if not pod_id:
+        raise HTTPException(status_code=400, detail="podId required")
+    try:
+        await runpod.terminate_pod(pod_id)
+        await pool.remove(pod_id)
+        logger.info(f"[admin] manually terminated pod {pod_id}")
+        return {"terminated": pod_id}
+    except LookupError:
+        await pool.remove(pod_id)
+        return {"terminated": pod_id, "note": "already gone from RunPod"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/admin/warmup")
@@ -128,25 +145,38 @@ async def warmup_vip(req: WarmupReq):
     original_gpu = settings.RUNPOD_GPU_TYPE
     original_cloud = settings.RUNPOD_CLOUD_TYPE
     settings.RUNPOD_GPU_TYPE = ",".join(req.gpu_types)
-    settings.RUNPOD_CLOUD_TYPE = req.cloud_type.upper()  # VIP dùng SECURE
+    settings.RUNPOD_CLOUD_TYPE = req.cloud_type.upper()
 
     created = []
     failed = []
+    MAX_RETRIES = 5
 
     for i in range(req.count):
-        try:
-            pod = await runpod.create_pod(f"comfy-vip-{uuid.uuid4().hex[:8]}")
-            pod_id = pod["id"]
-            await pool.mark_booting(pod_id)
-            await pool._update(pod_id, pinned_until=pinned_until)
-            logger.info(f"[warmup] 🔒 pinned VIP pod {pod_id} until {expires_at}")
-            created.append(pod_id)
-        except Exception as e:
-            # Unwrap tenacity RetryError để lấy lỗi gốc
-            cause = getattr(e, "last_attempt", None)
-            real_err = str(cause.exception()) if cause else str(e)
-            logger.error(f"[warmup] failed to create VIP pod #{i+1}: {real_err}")
-            failed.append(real_err)
+        success = False
+        last_err = "unknown"
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                pod = await runpod.create_pod(f"comfy-vip-{uuid.uuid4().hex[:8]}")
+                pod_id = pod["id"]
+                await pool.mark_booting(pod_id)
+                await pool._update(pod_id, pinned_until=pinned_until)
+                logger.info(f"[warmup] 🔒 pinned VIP pod {pod_id} until {expires_at}")
+                created.append(pod_id)
+                success = True
+                break
+            except Exception as e:
+                cause = getattr(e, "last_attempt", None)
+                last_err = str(cause.exception()) if cause else str(e)
+                # Nếu lỗi SUPPLY_CONSTRAINT thì không retry — GPU hết slot
+                if "SUPPLY_CONSTRAINT" in last_err:
+                    logger.warning(f"[warmup] pod #{i+1} attempt {attempt}: GPU supply exhausted")
+                    break
+                logger.warning(f"[warmup] pod #{i+1} attempt {attempt}/{MAX_RETRIES}: {last_err}")
+                await asyncio.sleep(2)
+
+        if not success:
+            logger.error(f"[warmup] pod #{i+1} FAILED after {MAX_RETRIES} attempts: {last_err}")
+            failed.append(f"Pod #{i+1}: {last_err}")
 
     settings.RUNPOD_GPU_TYPE = original_gpu
     settings.RUNPOD_CLOUD_TYPE = original_cloud
