@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # ===== RunPod =====
     RUNPOD_API_KEY: str
     RUNPOD_TEMPLATE_ID: str
-    RUNPOD_GPU_TYPE: str = "NVIDIA GeForce RTX 5090,NVIDIA L40S,NVIDIA A100 80GB PCIe"
+    RUNPOD_GPU_TYPE: str = "NVIDIA GeForce RTX 5090,NVIDIA RTX PRO 6000 Blackwell Server Edition,NVIDIA RTX PRO 6000 Blackwell Workstation Edition"
     RUNPOD_API_URL: str = "https://api.runpod.io/graphql"
     RUNPOD_NETWORK_VOLUME_ID: str = ""
     # Chỉ lấy host có driver hỗ trợ CUDA >= version này

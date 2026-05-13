@@ -167,8 +167,6 @@ class WarmupReq(BaseModel):
         "NVIDIA RTX PRO 6000 Blackwell Server Edition",
         "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
         "NVIDIA GeForce RTX 5090",
-        "NVIDIA L40S",
-        "NVIDIA A100 80GB PCIe",
     ]
 
 
