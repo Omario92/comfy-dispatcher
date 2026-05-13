@@ -188,16 +188,15 @@ class RunPodClient:
             )
             return r.json().get("data", {}).get("pod")
 
-    @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
     async def list_all_pods(self) -> list[dict]:
         """Lấy toàn bộ danh sách Pod đang có trên account RunPod."""
         query = """
-        query MyPods {
+        query {
           myself {
             pods {
               id
               name
-              runtime { status }
+              desiredStatus
             }
           }
         }
@@ -206,6 +205,9 @@ class RunPodClient:
             r = await client.post(self.url, json={"query": query}, headers=self.headers)
             r.raise_for_status()
             data = r.json()
+            if "errors" in data:
+                logger.error(f"[runpod] list_all_pods error: {data['errors']}")
+                return []
             return data.get("data", {}).get("myself", {}).get("pods", [])
 
 runpod = RunPodClient()
