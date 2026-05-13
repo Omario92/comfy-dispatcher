@@ -46,13 +46,16 @@ async def process_job(job_id: str) -> None:
         worker = await _acquire_worker(job_id)
         pod_id = worker["pod_id"]
 
+        # MARK BUSY NGAY LẬP TỨC để tránh bị Autoscaler kill trong khi đợi boot
+        await pool.mark_busy(pod_id, job_id)
+
         comfy_endpoint = (
             worker.get("proxy_url")
             or f"https://{pod_id}-8188.proxy.runpod.net"
         )
 
         await jobs.set_waiting_comfy(job_id, pod_id, comfy_endpoint)
-        logger.info(f"[processor] job={job_id} → pod={pod_id} comfy={comfy_endpoint}")
+        logger.info(f"[processor] job={job_id} → pod={pod_id} reserved (busy)")
 
         # ── Step 2: Đợi ComfyUI ready ────────────────────────────────
         ready = await wait_comfyui_ready(
@@ -64,8 +67,7 @@ async def process_job(job_id: str) -> None:
                 f"within {settings.COMFY_READY_TIMEOUT_SEC}s"
             )
 
-        # ── Step 3: Mark pod busy + update job status ─────────────────
-        await pool.mark_busy(pod_id, job_id)
+        # ── Step 3: Update job status (pod đã busy từ bước 1) ──────────
         await jobs.set_status(job_id, "running")
 
         # ── Step 4: Load workflow từ Redis ───────────────────────────
@@ -121,9 +123,10 @@ async def process_job(job_id: str) -> None:
         await _callback_n8n(job_id, "done", result_url, None, pod_id, prompt_id)
 
     except Exception as e:
-        logger.exception(f"[processor] ❌ job={job_id} FAILED: {e}")
-        await jobs.set_failed(job_id, str(e))
-        await _callback_n8n(job_id, "failed", None, str(e), pod_id, prompt_id)
+        err_msg = f"{type(e).__name__}: {str(e)}"
+        logger.exception(f"[processor] ❌ job={job_id} FAILED: {err_msg}")
+        await jobs.set_failed(job_id, err_msg)
+        await _callback_n8n(job_id, "failed", None, err_msg, pod_id, prompt_id)
 
     finally:
         # Luôn trả pod về idle khi xong, kể cả khi lỗi
