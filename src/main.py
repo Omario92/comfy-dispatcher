@@ -92,12 +92,39 @@ class SubmitJobReq(BaseModel):
 @app.post("/admin/flush-workers")
 async def flush_workers():
     """Xóa toàn bộ stale workers khỏi Redis registry (dùng khi debug)."""
-    r = await get_redis()
     workers = await pool.list_workers()
     for w in workers:
         await pool.remove(w["pod_id"])
     logger.warning(f"[admin] flushed {len(workers)} workers from registry")
     return {"flushed": len(workers)}
+
+
+@app.post("/admin/cleanup-zombies")
+async def cleanup_zombies():
+    """
+    Quét RunPod và xóa mọi Pod 'comfy-worker-' không có trong registry.
+    Dùng để dọn dẹp khi Dispatcher mất đồng bộ với RunPod.
+    """
+    all_runpod_pods = await runpod.list_all_pods()
+    registered_workers = await pool.list_workers()
+    registered_ids = {w["pod_id"] for w in registered_workers}
+
+    terminated = []
+    for p in all_runpod_pods:
+        pod_id = p["id"]
+        pod_name = p["name"]
+
+        # Chỉ xóa những pod do Dispatcher tạo (theo prefix name) nhưng không có trong registry
+        if pod_name.startswith("comfy-worker-") and pod_id not in registered_ids:
+            logger.warning(f"[admin] terminating zombie pod: {pod_name} ({pod_id})")
+            await runpod.terminate_pod(pod_id)
+            terminated.append(pod_id)
+
+    return {
+        "status": "cleanup_complete",
+        "terminated_count": len(terminated),
+        "terminated_ids": terminated
+    }
 
 
 # ============ WORKER CALLBACKS ============
