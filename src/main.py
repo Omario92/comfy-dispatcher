@@ -163,18 +163,20 @@ async def reconcile_workers():
         for w in workers:
             pod_id = w["pod_id"]
             redis_status = w.get("status", "unknown")
+            rp_state = runpod_status.get(pod_id, None)
 
-            if pod_id not in runpod_status:
+            if rp_state is None:
                 # Pod không tồn tại trên RunPod → xóa khỏi registry
                 logger.warning(f"[reconcile] pod {pod_id} not found on RunPod → removing")
                 await pool.remove(pod_id)
                 removed.append(pod_id)
 
-            elif runpod_status[pod_id] in ("EXITED", "STOPPED") and redis_status in ("busy", "booting"):
-                # Pod đã dừng nhưng Redis vẫn đánh dấu busy/booting → reset idle
-                logger.warning(f"[reconcile] pod {pod_id} is {runpod_status[pod_id]} on RunPod but '{redis_status}' in Redis → reset to idle")
-                await pool.mark_idle(pod_id)
-                fixed.append({"pod_id": pod_id, "was": redis_status, "runpod_state": runpod_status[pod_id]})
+            elif rp_state in ("EXITED", "STOPPED") and redis_status in ("busy", "booting"):
+                # Pod đã dừng nhưng Redis vẫn đánh dấu busy/booting
+                # → mark_stopped (KHÔNG phải idle) để autoscaler quyết định resume hay terminate
+                logger.warning(f"[reconcile] pod {pod_id} is {rp_state} on RunPod but '{redis_status}' in Redis → mark stopped")
+                await pool.mark_stopped(pod_id)
+                fixed.append({"pod_id": pod_id, "was": redis_status, "runpod_state": rp_state, "now": "stopped"})
 
         return {
             "status": "reconcile_complete",
