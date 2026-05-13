@@ -99,6 +99,11 @@ async def poll_result(endpoint: str, prompt_id: str, timeout_sec: int | None = N
                 if history and prompt_id in history:
                     logger.info(f"[comfy] ✅ result received for prompt_id={prompt_id}")
                     return history[prompt_id]
+            else:
+                logger.warning(
+                    f"[comfy] poll /history returned {r.status_code} "
+                    f"(pod may be unreachable): {r.text[:120]}"
+                )
 
         except Exception as e:
             logger.warning(f"[comfy] poll error: {e}")

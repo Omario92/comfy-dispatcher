@@ -59,7 +59,20 @@ async def _check_all():
         ok = await _ping(w)
         if ok:
             await pool.update_activity(pod_id)
+
         age = int(time.time()) - w.get("last_active", 0)
+
+        # KHÔNG bao giờ terminate pod đang busy (đang render)
+        if status == "busy":
+            if age > settings.BOOT_TIMEOUT_SEC * 3:  # 30 phút grace cho render
+                logger.warning(
+                    f"[health] busy pod {pod_id} unreachable for {age}s "
+                    f"(> {settings.BOOT_TIMEOUT_SEC * 3}s), marking dead"
+                )
+                await pool.set_status(pod_id, "dead")
+            continue
+
+        # idle pod: kill nếu unreachable quá lâu
         if age > settings.BOOT_TIMEOUT_SEC:
             logger.warning(f"[health] worker {pod_id} unreachable for {age}s, killing")
             try:
