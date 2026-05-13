@@ -18,11 +18,9 @@ from config import settings
 async def wait_comfyui_ready(endpoint: str, pod_id: str | None = None, timeout_sec: int | None = None) -> bool:
     """
     Poll ComfyUI /queue mỗi 5 giây cho đến khi trả 200 hoặc timeout.
-    Nếu có pod_id, ưu tiên check qua podExec (curl localhost) để bypass Proxy 404.
+    pod_id được giữ lại cho tương thích nhưng không dùng podExec
+    (podExec trả 400 trên Community Cloud — không hỗ trợ).
     """
-    from runpod_client import RunPodClient
-    runpod = RunPodClient()
-
     if timeout_sec is None:
         timeout_sec = settings.COMFY_READY_TIMEOUT_SEC
 
@@ -30,29 +28,15 @@ async def wait_comfyui_ready(endpoint: str, pod_id: str | None = None, timeout_s
     headers = {"Authorization": f"Bearer {settings.RUNPOD_API_KEY}"}
 
     while asyncio.get_event_loop().time() - started < timeout_sec:
-        # Cách 1: Thử check qua podExec (Bypass Proxy) - Cực kỳ ổn định
-        if pod_id:
-            try:
-                # Chạy curl bên trong pod
-                res = await runpod.execute_command(pod_id, "curl -s -o /dev/null -w '%{http_code}' http://localhost:8188/queue")
-                status_code = res.get("stdout", "").strip()
-                if status_code == "200":
-                    logger.info(f"[comfy] ✅ ComfyUI ready (checked via podExec) in {pod_id}")
-                    return True
-                logger.debug(f"[comfy] podExec curl localhost:8188 → {status_code}, retrying...")
-            except Exception as e:
-                logger.debug(f"[comfy] podExec check error: {e}")
-
-        # Cách 2: Check qua Proxy URL (Legacy)
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 r = await client.get(f"{endpoint}/queue", headers=headers)
                 if r.status_code == 200:
-                    logger.info(f"[comfy] ✅ ComfyUI ready (checked via Proxy) at {endpoint}")
+                    logger.info(f"[comfy] ✅ ComfyUI ready at {endpoint}")
                     return True
-                logger.debug(f"[comfy] Proxy /queue → {r.status_code}, retrying...")
+                logger.debug(f"[comfy] /queue → {r.status_code}, retrying...")
         except Exception as e:
-            logger.debug(f"[comfy] Proxy ping error: {e}")
+            logger.debug(f"[comfy] ping error: {e}")
 
         await asyncio.sleep(5)
 

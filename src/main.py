@@ -144,6 +144,49 @@ async def cleanup_zombies():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/admin/reconcile")
+async def reconcile_workers():
+    """
+    Đồng bộ trạng thái Redis với RunPod thực tế.
+    Pod nào đang 'busy'/'booting' trong Redis nhưng không còn RUNNING trên RunPod
+    → reset về 'idle' để giải phóng slot.
+    """
+    try:
+        all_runpod_pods = await runpod.list_all_pods()
+        # Map pod_id → desiredStatus từ RunPod
+        runpod_status = {p["id"]: p.get("desiredStatus", "UNKNOWN") for p in all_runpod_pods}
+
+        workers = await pool.list_workers()
+        fixed = []
+        removed = []
+
+        for w in workers:
+            pod_id = w["pod_id"]
+            redis_status = w.get("status", "unknown")
+
+            if pod_id not in runpod_status:
+                # Pod không tồn tại trên RunPod → xóa khỏi registry
+                logger.warning(f"[reconcile] pod {pod_id} not found on RunPod → removing")
+                await pool.remove(pod_id)
+                removed.append(pod_id)
+
+            elif runpod_status[pod_id] in ("EXITED", "STOPPED") and redis_status in ("busy", "booting"):
+                # Pod đã dừng nhưng Redis vẫn đánh dấu busy/booting → reset idle
+                logger.warning(f"[reconcile] pod {pod_id} is {runpod_status[pod_id]} on RunPod but '{redis_status}' in Redis → reset to idle")
+                await pool.mark_idle(pod_id)
+                fixed.append({"pod_id": pod_id, "was": redis_status, "runpod_state": runpod_status[pod_id]})
+
+        return {
+            "status": "reconcile_complete",
+            "checked": len(workers),
+            "removed_ghost_pods": removed,
+            "reset_to_idle": fixed,
+        }
+    except Exception as e:
+        logger.exception(f"[admin] reconcile failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============ WORKER CALLBACKS ============
 
 @app.post("/worker/register")
