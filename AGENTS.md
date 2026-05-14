@@ -17,6 +17,7 @@
 - [2026-05-13] Stability & Integration Fixes: (1) Fix JSON parse error (frontend) bằng cách unwrap array response từ n8n; (2) Fix PHP Proxy cURL output leak gây hỏng JSON response; (3) Thêm fail-fast logic phát hiện ComfyUI crash (404); (4) Tự động xóa Ghost Pods (POD_NOT_FOUND) khỏi registry; (5) Tăng COMFY_READY_TIMEOUT lên 900s cho các model lớn như WAN 14B.
 - [2026-05-13] Infrastructure Resilience: (1) Triển khai podExec (TCL) để gửi lệnh trực tiếp vào Pod, bypass hoàn toàn lỗi Proxy 404 của RunPod; (2) Thêm Admin Endpoint `/admin/cleanup-zombies` để tự động dọn dẹp Pod thừa (Zombie Pods); (3) Tăng Idle Timeout lên 10 phút để tránh việc Autoscaler tắt Pod quá sớm khi đang load model.
 - [2026-05-13] VIP Warmup Mode: (1) `/admin/warmup` tạo N pod GPU cao cấp (RTX PRO 6000/RTX 5090/L40S/A100) và ghim chúng X giờ; (2) Autoscaler bỏ qua pod được ghim; (3) Job mới ưu tiên vào pod VIP trước; (4) `/admin/reconcile` đồng bộ Redis với RunPod thực tế; (5) `/admin/terminate-pod` xóa pod cụ thể; (6) Disable podExec (400 trên Community Cloud).
+- [2026-05-14] Manual Pod Registration: Thêm `POST /admin/register-pod` để Admin gán thủ công Pod ID (đã deploy trên RunPod web) vào Upstash Redis. Hỗ trợ cả Community Cloud (proxy_url) và Secure Cloud (ip+port). Tùy chọn `pin_hours` để ghim pod, autoscaler bỏ qua.
 
 
 ## vexp <!-- vexp v2.0.12 -->

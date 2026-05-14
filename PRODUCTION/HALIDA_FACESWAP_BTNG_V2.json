@@ -1154,7 +1154,7 @@
   },
   "268": {
     "inputs": {
-      "value": 768
+      "value": 684
     },
     "class_type": "PrimitiveInt",
     "_meta": {
@@ -1373,18 +1373,6 @@
       "title": "WanVideo Sampler"
     }
   },
-  "111:215": {
-    "inputs": {
-      "easycache_thresh": 0.015,
-      "start_step": 10,
-      "end_step": -1,
-      "cache_device": "main_device"
-    },
-    "class_type": "WanVideoEasyCache",
-    "_meta": {
-      "title": "WanVideo EasyCache"
-    }
-  },
   "111:213": {
     "inputs": {
       "enable_vae_tiling": true,
@@ -1407,10 +1395,22 @@
       "title": "WanVideo Decode"
     }
   },
+  "111:215": {
+    "inputs": {
+      "easycache_thresh": 0.015,
+      "start_step": 0,
+      "end_step": -1,
+      "cache_device": "main_device"
+    },
+    "class_type": "WanVideoEasyCache",
+    "_meta": {
+      "title": "WanVideo EasyCache"
+    }
+  },
   "9:211": {
     "inputs": {
-      "width": 1024,
-      "height": 1024,
+      "width": 768,
+      "height": 768,
       "num_frames": [
         "225",
         2
@@ -1488,18 +1488,6 @@
       "title": "WanVideo Sampler"
     }
   },
-  "9:192": {
-    "inputs": {
-      "easycache_thresh": 0.015,
-      "start_step": 10,
-      "end_step": -1,
-      "cache_device": "main_device"
-    },
-    "class_type": "WanVideoEasyCache",
-    "_meta": {
-      "title": "WanVideo EasyCache"
-    }
-  },
   "9:28": {
     "inputs": {
       "enable_vae_tiling": true,
@@ -1520,6 +1508,18 @@
     "class_type": "WanVideoDecode",
     "_meta": {
       "title": "WanVideo Decode"
+    }
+  },
+  "9:192": {
+    "inputs": {
+      "easycache_thresh": 0.015,
+      "start_step": 0,
+      "end_step": -1,
+      "cache_device": "main_device"
+    },
+    "class_type": "WanVideoEasyCache",
+    "_meta": {
+      "title": "WanVideo EasyCache"
     }
   }
 }

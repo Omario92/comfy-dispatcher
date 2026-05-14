@@ -168,6 +168,8 @@ Mỗi job được lưu trong Redis key `jobs:status:{job_id}` dưới dạng HA
 | `POST` | `/admin/reconcile` | Đồng bộ Redis với RunPod thực tế (fix busy ảo) |
 | `POST` | `/admin/cleanup-zombies` | Xóa pod zombie không nằm trong registry |
 | `POST` | `/admin/terminate-pod` | Terminate pod cụ thể theo `podId` |
+| `POST` | `/admin/terminate-all` | Xóa sạch toàn bộ Pod đang chạy trong registry |
+| `POST` | `/admin/register-pod` | Đăng ký thủ công Pod đã deploy qua web |
 | `POST` | `/admin/job-recover` | Recover thủ công job bị stuck `running` |
 | `POST` | `/admin/flush-workers` | Xóa toàn bộ registry (chỉ dùng khi debug) |
 

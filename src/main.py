@@ -148,6 +148,104 @@ async def job_recover(body: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class RegisterPodReq(BaseModel):
+    pod_id: str
+    proxy_url: str = ""   # https://{pod_id}-8188.proxy.runpod.net  (để trống nếu dùng IP)
+    ip: str = ""          # Public IP nếu dùng SECURE cloud (thay vì proxy)
+    port: int = 8188      # Port ComfyUI (mặc định 8188)
+    pin_hours: float = 0  # > 0 để ghim pod, autoscaler sẽ bỏ qua nó
+
+
+@app.post("/admin/register-pod")
+async def admin_register_pod(req: RegisterPodReq):
+    """
+    Đăng ký thủ công một Pod đã được deploy sẵn trên RunPod web vào Redis Dispatcher.
+
+    Dùng khi Admin tự bật Pod trên giao diện web RunPod và muốn Dispatcher
+    nhận job và dispatch thẳng vào Pod đó.
+
+    Cách lấy proxy_url:
+      - Vào RunPod → Pod details → tab "Connect"
+      - Chọn port 8188 → copy "Connect to HTTP Service"
+      - Dạng: https://{pod_id}-8188.proxy.runpod.net
+
+    Body JSON:
+      {
+        "pod_id":    "abc123xyz",
+        "proxy_url": "https://abc123xyz-8188.proxy.runpod.net",
+        "pin_hours": 4     (tuỳ chọn — ghim pod N giờ, autoscaler bỏ qua)
+      }
+    """
+    if not req.pod_id:
+        raise HTTPException(status_code=400, detail="pod_id is required")
+    if not req.proxy_url and not req.ip:
+        raise HTTPException(
+            status_code=400,
+            detail="Cần ít nhất 1 trong 2: proxy_url (Community Cloud) hoặc ip (Secure Cloud)"
+        )
+
+    # Kiểm tra pod đã tồn tại chưa
+    existing = await pool.get_worker(req.pod_id)
+
+    if req.proxy_url:
+        # Community Cloud: dùng RunPod Proxy URL
+        await pool.register_proxy(req.pod_id, req.proxy_url)
+    else:
+        # Secure Cloud: dùng IP trực tiếp
+        await pool.register(req.pod_id, req.ip, req.port)
+
+    # Ghim pod nếu admin muốn
+    pin_msg = None
+    if req.pin_hours > 0:
+        pinned_until = int(time.time()) + int(req.pin_hours * 3600)
+        await pool._update(req.pod_id, pinned_until=pinned_until)
+        pin_msg = time.strftime("%H:%M:%S %d/%m/%Y", time.localtime(pinned_until))
+
+    action = "updated" if existing else "registered"
+    logger.info(
+        f"[admin] manually {action} pod {req.pod_id} "
+        f"proxy={req.proxy_url or '-'} ip={req.ip or '-'} "
+        f"pinned_until={pin_msg or 'no pin'}"
+    )
+
+    return {
+        "status": "ok",
+        "action": action,
+        "pod_id": req.pod_id,
+        "proxy_url": req.proxy_url or None,
+        "ip": req.ip or None,
+        "port": req.port,
+        "pinned_until": pin_msg,
+        "note": "Pod đã được đăng ký vào Redis. Dispatcher sẽ dispatch job vào Pod này ngay khi có job mới."
+    }
+
+
+@app.post("/admin/terminate-all")
+async def terminate_all_pods():
+    """Xóa sạch toàn bộ Pod trong registry và trên RunPod."""
+    workers = await pool.list_workers()
+    terminated = []
+    errors = []
+    
+    for w in workers:
+        pod_id = w["pod_id"]
+        try:
+            await runpod.terminate_pod(pod_id)
+            await pool.remove(pod_id)
+            terminated.append(pod_id)
+        except Exception as e:
+            errors.append({"pod_id": pod_id, "error": str(e)})
+            
+    logger.warning(f"[admin] terminate-all: {len(terminated)} killed, {len(errors)} failed")
+    return {
+        "status": "complete",
+        "terminated_count": len(terminated),
+        "terminated_ids": terminated,
+        "failed_count": len(errors),
+        "errors": errors
+    }
+
+
 @app.post("/admin/flush-workers")
 async def flush_workers():
     """Xóa toàn bộ stale workers khỏi Redis registry (dùng khi debug)."""
