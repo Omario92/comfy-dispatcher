@@ -363,38 +363,60 @@ async def wait_for_result(
     t_start = time.monotonic()
     ws_client = AsyncComfyWebSocketClient(endpoint, client_id)
 
-    try:
-        # ── Thử WebSocket trước ─────────────────────────────────────────
-        logger.info(
-            f"[comfy] Connecting WebSocket for prompt_id={prompt_id} "
-            f"(timeout={timeout_sec}s)"
-        )
-        await ws_client.connect()
+    logger.info(
+        f"[comfy] Hybrid WS+Polling for prompt_id={prompt_id} "
+        f"(timeout={timeout_sec}s)"
+    )
 
-        # Chờ event real-time (execution_success / execution_error)
-        await ws_client.wait_for_completion(prompt_id, timeout_sec=timeout_sec)
+    async def _ws_task():
+        try:
+            await ws_client.connect()
+            await ws_client.wait_for_completion(prompt_id, timeout_sec=timeout_sec)
+            elapsed = time.monotonic() - t_start
+            logger.info(f"[comfy] ✅ WS completed in {elapsed:.1f}s → fetching history")
+            return await _fetch_history(endpoint, prompt_id)
+        finally:
+            await ws_client.close()
 
-        # WS chỉ báo "xong" — cần fetch history để lấy output files
-        elapsed = time.monotonic() - t_start
-        logger.info(
-            f"[comfy] WS completed in {elapsed:.1f}s → fetching history "
-            f"for prompt_id={prompt_id}"
-        )
-        return await _fetch_history(endpoint, prompt_id)
-
-    except Exception as ws_err:
-        # ── Fallback về polling ─────────────────────────────────────────
-        elapsed_so_far = time.monotonic() - t_start
-        remaining = max(10, timeout_sec - int(elapsed_so_far))
-        logger.warning(
-            f"[comfy] WebSocket failed after {elapsed_so_far:.1f}s: {ws_err} "
-            f"→ fallback to polling (remaining={remaining}s)"
-        )
+    async def _poll_task():
+        # Đợi một chút để WS có cơ hội chạy trước, giảm số lượng request poll
+        await asyncio.sleep(8)
+        remaining = max(10, timeout_sec - 8)
         return await poll_result(endpoint, prompt_id, timeout_sec=remaining)
 
-    finally:
-        # Đảm bảo đóng WS dù thành công hay fail
-        await ws_client.close()
+    t_ws = asyncio.create_task(_ws_task())
+    t_poll = asyncio.create_task(_poll_task())
+
+    try:
+        done, pending = await asyncio.wait(
+            [t_ws, t_poll], return_when=asyncio.FIRST_COMPLETED
+        )
+
+        # Lấy task vừa xong
+        completed_task = list(done)[0]
+        
+        # Nếu task đầu tiên thành công
+        if completed_task.exception() is None:
+            for p in pending:
+                p.cancel()
+            return completed_task.result()
+        else:
+            # Task đầu tiên bị lỗi (ví dụ WS timeout/crash)
+            logger.warning(
+                f"[comfy] Primary wait task failed: {completed_task.exception()} "
+                f"→ waiting for fallback task"
+            )
+            if pending:
+                fallback_task = list(pending)[0]
+                return await fallback_task
+            else:
+                raise completed_task.exception()
+                
+    except Exception as e:
+        for p in [t_ws, t_poll]:
+            if not p.done():
+                p.cancel()
+        raise e
 
 
 # ─────────────────────────── Fetch history (sau khi WS báo xong) ───────────────────────────
