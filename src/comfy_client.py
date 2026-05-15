@@ -141,16 +141,21 @@ class AsyncComfyWebSocketClient:
                     )
 
                     # ── Xử lý event kết thúc ────────────────────────────
-                    if msg_type in (
-                        "execution_success",
-                        "execution_complete",
-                        "execution_completed",
-                        "execution_error",
-                    ):
+                    is_completed = False
+                    is_error = False
+
+                    if msg_type == "execution_error":
+                        is_error = True
+                    elif msg_type == "executing" and msg_data.get("node") is None:
+                        is_completed = True
+                    elif msg_type in ("execution_success", "execution_complete", "execution_completed"):
+                        is_completed = True
+
+                    if is_completed or is_error:
                         if prompt_id and prompt_id in self._listeners:
                             future = self._listeners.pop(prompt_id, None)
                             if future and not future.done():
-                                if msg_type == "execution_error":
+                                if is_error:
                                     # Ghi lỗi vào Future để caller xử lý
                                     err_msg = msg_data.get("exception_message", "Unknown ComfyUI error")
                                     future.set_exception(
