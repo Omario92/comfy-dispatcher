@@ -72,7 +72,7 @@ class AsyncComfyWebSocketClient:
         async def _try_connect():
             self._ws = await websockets.connect(
                 uri,
-                additional_headers=headers,
+                extra_headers=headers,
                 # Ping tự động của websockets library (application-level ping_interval)
                 ping_interval=settings.COMFY_WS_PING_INTERVAL,
                 ping_timeout=30,
