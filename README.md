@@ -264,6 +264,14 @@ Hệ thống đã được tối ưu hóa để giảm thời gian chờ đợi 
 
 ---
 
+## 🛡 Tính ổn định (Stability)
+
+- **Booting Fail-Fast**: Health loop chủ động truy vấn RunPod API để phát hiện lỗi khởi tạo container (VD: `exit status 1` hoặc `context deadline exceeded`). Pod lỗi sẽ bị loại bỏ lập tức thay vì phải chờ hết `BOOT_TIMEOUT_SEC` (15 phút), giúp autoscaler nhanh chóng thuê máy mới thay thế.
+- **Auto Recovery**: Tự động phát hiện và thử phục hồi các job bị kẹt ở trạng thái `running` quá lâu do ComfyUI mất kết nối mạng giữa chừng.
+- **Zombie Pod Cleanup**: Quét và dọn dẹp các pod đang chạy thực tế trên RunPod nhưng không có trong registry của Redis.
+
+---
+
 ## 📋 Lịch sử thay đổi
 
 Xem file [AGENTS.md](./AGENTS.md) để biết chi tiết các thay đổi theo từng ngày.

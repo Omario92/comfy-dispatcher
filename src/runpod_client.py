@@ -50,6 +50,14 @@ class RunPodClient:
                             "supportPublicIp": True,
                         }
                     }
+                    
+                    env_vars = []
+                    if settings.COMFYUI_ARGS:
+                        env_vars.append({"key": "COMFYUI_ARGS", "value": settings.COMFYUI_ARGS})
+                    
+                    if env_vars:
+                        variables["input"]["env"] = env_vars
+
                     if settings.RUNPOD_NETWORK_VOLUME_ID:
                         variables["input"]["networkVolumeId"] = settings.RUNPOD_NETWORK_VOLUME_ID
                     r = await client.post(

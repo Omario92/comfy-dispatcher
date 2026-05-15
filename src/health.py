@@ -37,8 +37,21 @@ async def _check_all():
             # Kiểm tra xem ComfyUI đã ready qua RunPod proxy chưa
             proxy = _proxy_url(pod_id)
             age = int(time.time()) - w.get("last_active", 0)
+            
+            # Fail-fast: check RunPod API to see if container crashed (exit status 1)
+            # Booting pod số lượng ít nên có thể gọi API mỗi cycle (ví dụ mỗi 30s)
+            pod_info = await runpod.get_pod(pod_id)
+            if pod_info and pod_info.get("desiredStatus") == "EXITED":
+                logger.error(f"[health] Pod {pod_id} failed to boot (container crashed or deadline exceeded). Terminating early.")
+                try:
+                    await runpod.terminate_pod(pod_id)
+                except Exception:
+                    pass
+                await pool.remove(pod_id)
+                continue
+
             if age < 60:
-                # Chưa đủ 60 giây, bỏ qua
+                # Chưa đủ 60 giây để lên http server, bỏ qua
                 continue
 
             ok = await _ping_url(f"{proxy}/queue")

@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     RUNPOD_MIN_CUDA_VERSION: str = "12.8"
     # "COMMUNITY" (rẻ hơn, dùng khi test) hoặc "SECURE" (ổn định, production)
     RUNPOD_CLOUD_TYPE: str = "SECURE"
+    COMFYUI_ARGS: str = ""  # Các custom arguments truyền vào cho ComfyUI khi start pod
 
     # ===== Autoscale =====
     MIN_WORKERS: int = 0  # 0 = scale-to-zero
