@@ -18,9 +18,9 @@ from comfy_client import (
     build_view_url,
     extract_output_files,
     pick_primary_output,
-    poll_result,
     submit_workflow,
     wait_comfyui_ready,
+    wait_for_result,  # WebSocket real-time + polling fallback
 )
 from config import settings
 from job_store import jobs
@@ -86,9 +86,10 @@ async def process_job(job_id: str) -> None:
         await jobs.update_prompt_id(job_id, prompt_id)
         logger.info(f"[processor] job={job_id} prompt_id={prompt_id}")
 
-        # ── Step 6: Poll /history/{prompt_id} ────────────────────────
-        history_item = await poll_result(
+        # ── Step 6: Chờ ComfyUI hoàn thành (WS real-time → fallback polling) ──
+        history_item = await wait_for_result(
             comfy_endpoint, prompt_id,
+            client_id=job_id,
             timeout_sec=settings.COMFY_RESULT_TIMEOUT_SEC,
         )
 

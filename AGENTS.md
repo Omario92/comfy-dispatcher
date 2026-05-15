@@ -18,6 +18,7 @@
 - [2026-05-13] Infrastructure Resilience: (1) Triển khai podExec (TCL) để gửi lệnh trực tiếp vào Pod, bypass hoàn toàn lỗi Proxy 404 của RunPod; (2) Thêm Admin Endpoint `/admin/cleanup-zombies` để tự động dọn dẹp Pod thừa (Zombie Pods); (3) Tăng Idle Timeout lên 10 phút để tránh việc Autoscaler tắt Pod quá sớm khi đang load model.
 - [2026-05-13] VIP Warmup Mode: (1) `/admin/warmup` tạo N pod GPU cao cấp (RTX PRO 6000/RTX 5090/L40S/A100) và ghim chúng X giờ; (2) Autoscaler bỏ qua pod được ghim; (3) Job mới ưu tiên vào pod VIP trước; (4) `/admin/reconcile` đồng bộ Redis với RunPod thực tế; (5) `/admin/terminate-pod` xóa pod cụ thể; (6) Disable podExec (400 trên Community Cloud).
 - [2026-05-14] Manual Pod Registration: Thêm `POST /admin/register-pod` để Admin gán thủ công Pod ID (đã deploy trên RunPod web) vào Upstash Redis. Hỗ trợ cả Community Cloud (proxy_url) và Secure Cloud (ip+port). Tùy chọn `pin_hours` để ghim pod, autoscaler bỏ qua.
+- [2026-05-15] WebSocket Optimization: Thay polling 5s bằng WebSocket real-time cho ComfyUI (latency giảm từ ~5s → real-time). Implement `AsyncComfyWebSocketClient` (persistent connection, heartbeat, auto-reconnect, exponential backoff). Thêm `wait_for_result()` = WS + tự động fallback polling cũ nếu WS fail (zero-downtime). Thêm `websockets==13.1` vào requirements. Thêm `COMFY_WS_PING_INTERVAL` và `COMFY_WS_RECONNECT_MAX_ATTEMPTS` vào config. job_processor.py chỉ thay 1 dòng `poll_result` → `wait_for_result`.
 
 
 ## vexp <!-- vexp v2.0.12 -->

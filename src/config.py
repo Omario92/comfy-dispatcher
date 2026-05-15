@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     COMFY_RESULT_TIMEOUT_SEC: int = 1800  # max wait for render result (30 min)
     COMFY_POLL_INTERVAL_SEC: int = 5      # interval between history polls
 
+    # ===== ComfyUI WebSocket (tối ưu latency) =====
+    COMFY_WS_PING_INTERVAL: int = 20          # heartbeat ping mỗi N giây để giữ alive qua Cloudflare
+    COMFY_WS_RECONNECT_MAX_ATTEMPTS: int = 5  # số lần retry khi WS mất kết nối
+
     # ===== URLs =====
     DISPATCHER_PUBLIC_URL: str = "" # https://comfy-dispatcher.up.railway.app
     N8N_CALLBACK_URL: str = ""      # https://n8n.../webhook/faceswap-done

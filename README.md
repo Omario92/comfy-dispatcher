@@ -255,6 +255,15 @@ loguru                 — Logging
 
 ---
 
+## ⚡ Tối ưu hóa Latency
+
+Hệ thống đã được tối ưu hóa để giảm thời gian chờ đợi end-to-end:
+- **WebSocket Real-time**: Thay thế polling HTTP bằng kết nối WebSocket bền vững tới ComfyUI. Nhận thông báo hoàn thành ngay lập tức (giảm ~5-10s latency).
+- **Tự động Fallback**: Nếu WebSocket gặp sự cố (proxy lỗi, network lag), hệ thống tự động chuyển sang polling truyền thống để đảm bảo job không bao giờ bị stuck.
+- **Persistent Connections**: Tối ưu hóa việc tái sử dụng kết nối HTTP/WebSocket để giảm overhead handshake.
+
+---
+
 ## 📋 Lịch sử thay đổi
 
 Xem file [AGENTS.md](./AGENTS.md) để biết chi tiết các thay đổi theo từng ngày.
