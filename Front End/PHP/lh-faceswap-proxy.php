@@ -36,6 +36,18 @@ define('MAX_FILE_SIZE',    20 * 1024 * 1024); // 20MB
 define('JOB_TTL',          1800);             // Lưu kết quả 30 phút
 define('POLL_TIMEOUT',     30);               // PHP chờ n8n tối đa 30s/poll cycle
 
+// Map personality number → img-personality URL (dùng khi fallback từ Dispatcher trực tiếp)
+// n8n thường tự map và gửi URL, nhưng khi bypass n8n cần map thủ công
+define('PERSONALITY_IMG_MAP', [
+    0 => 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/04/HLD-BTNG.webp',
+    1 => 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/04/HLD-BTNG.webp',
+    2 => 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/04/HLD-BTNG.webp',
+    3 => 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/04/HLD-BTNG.webp',
+    4 => 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/04/HLD-BTNG.webp',
+    5 => 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/04/HLD-BTNG.webp',
+]);
+
+
 // ================== ĐĂNG KÝ REST API ==================
 add_action('rest_api_init', 'lh_faceswap_register_routes');
 
@@ -323,28 +335,40 @@ function lh_handle_poll_status($request) {
             $now          = time();
 
             if ($disp_status === 'done' && $result_url) {
+                // Dispatcher trả về img_personality (dấu _), map sang img-personality (dấu -)
+                // Nếu là URL → dùng luôn; nếu là số → map sang URL qua PERSONALITY_IMG_MAP
+                $raw_personality = $dispatcher_data['img_personality'] ?? $dispatcher_data['personality'] ?? '';
+                if (filter_var($raw_personality, FILTER_VALIDATE_URL)) {
+                    $img_personality_direct = $raw_personality;
+                } elseif (is_numeric($raw_personality)) {
+                    $map = defined('PERSONALITY_IMG_MAP') ? PERSONALITY_IMG_MAP : [];
+                    $img_personality_direct = $map[(int)$raw_personality] ?? '';
+                } else {
+                    $img_personality_direct = '';
+                }
+
                 if ($output_type === 'image') {
                     $updated = [
-                        'status'       => 'done',
-                        'success'      => true,
-                        'output_type'  => 'image',
-                        'image_url'    => $result_url,
-                        'preview_url'  => '',
-                        'img-personality' => '',
-                        'sibling_job'  => $data['sibling_job'] ?? null,
-                        'completed_at' => $now,
-                        '_source'      => 'dispatcher_direct',
+                        'status'          => 'done',
+                        'success'         => true,
+                        'output_type'     => 'image',
+                        'image_url'       => $result_url,
+                        'preview_url'     => '',
+                        'img-personality' => $img_personality_direct,
+                        'sibling_job'     => $data['sibling_job'] ?? null,
+                        'completed_at'    => $now,
+                        '_source'         => 'dispatcher_direct',
                     ];
                 } else {
                     $updated = [
-                        'status'       => 'done',
-                        'success'      => true,
-                        'output_type'  => 'video',
-                        'video_url'    => $result_url,
-                        'img-personality' => '',
-                        'sibling_job'  => $data['sibling_job'] ?? null,
-                        'completed_at' => $now,
-                        '_source'      => 'dispatcher_direct',
+                        'status'          => 'done',
+                        'success'         => true,
+                        'output_type'     => 'video',
+                        'video_url'       => $result_url,
+                        'img-personality' => $img_personality_direct,
+                        'sibling_job'     => $data['sibling_job'] ?? null,
+                        'completed_at'    => $now,
+                        '_source'         => 'dispatcher_direct',
                     ];
                 }
             } else {
