@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # ===== RunPod =====
     RUNPOD_API_KEY: str
     RUNPOD_TEMPLATE_ID: str
-    RUNPOD_GPU_TYPE: str = "NVIDIA GeForce RTX 5090,NVIDIA L40S,NVIDIA A100 80GB PCIe"
+    RUNPOD_GPU_TYPE: str = "NVIDIA GeForce RTX 5090,NVIDIA L40S"
     RUNPOD_API_URL: str = "https://api.runpod.io/graphql"
     RUNPOD_NETWORK_VOLUME_ID: str = ""
     # Chỉ lấy host có driver hỗ trợ CUDA >= version này
@@ -65,7 +65,12 @@ class Settings(BaseSettings):
 
     # ===== URLs =====
     DISPATCHER_PUBLIC_URL: str = "" # https://comfy-dispatcher.up.railway.app
-    N8N_CALLBACK_URL: str = ""      # https://n8n.../webhook/faceswap-done
+
+    # n8n callback khi job xong — dispatcher POST về đây
+    # Dùng URL riêng theo output_type để n8n xử lý đúng mapping image/video
+    N8N_CALLBACK_URL:      str = "" # fallback chung (legacy)
+    N8N_IMG_CALLBACK_URL:  str = "" # https://n8n.../webhook/halida-faceswap-img-result
+    N8N_VID_CALLBACK_URL:  str = "" # https://n8n.../webhook/halida-faceswap-video-result
 
     # ===== Cloudflare R2 =====
     R2_ENDPOINT: str = ""

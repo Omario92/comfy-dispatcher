@@ -13,7 +13,10 @@ class JobStore:
     async def create(self, job_id: str, personality: int | str, user_image_url: str,
                       workflow: dict | None = None,
                       callback_url: str = "",
-                      user_id: str = ""):
+                      user_id: str = "",
+                      priority: str = "normal",
+                      output_type: str = "video",
+                      job_label: str = ""):
         import json
         r = await get_redis()
         key = self._key(job_id)
@@ -24,6 +27,9 @@ class JobStore:
             "user_image_url": user_image_url,
             "callback_url":  callback_url,
             "user_id":       user_id,
+            "priority":      priority,
+            "output_type":   output_type,
+            "job_label":     job_label,
             "pod_id":        "",
             "comfy_endpoint": "",
             "comfy_prompt_id": "",

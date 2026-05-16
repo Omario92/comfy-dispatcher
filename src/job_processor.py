@@ -35,7 +35,10 @@ async def process_job(job_id: str) -> None:
     Pipeline đầy đủ chạy trong background task.
     Mọi exception đều được catch và ghi vào job status.
     """
-    logger.info(f"[processor] ▶ start job={job_id}")
+    job_meta = await jobs.get(job_id)
+    priority    = (job_meta or {}).get("priority", "normal")
+    output_type = (job_meta or {}).get("output_type", "video")
+    logger.info(f"[processor] ▶ start job={job_id} priority={priority} output_type={output_type}")
 
     pod_id = ""
     prompt_id = ""
@@ -43,7 +46,7 @@ async def process_job(job_id: str) -> None:
     try:
         # ── Step 1: Lấy worker idle (hoặc scale up) ──────────────────
         await jobs.set_status(job_id, "starting_pod")
-        worker = await _acquire_worker(job_id)
+        worker = await _acquire_worker(job_id, prefer_vip=(priority == "high"))
         pod_id = worker["pod_id"]
 
         # MARK BUSY NGAY LẬP TỨC để tránh bị Autoscaler kill trong khi đợi boot
@@ -141,7 +144,7 @@ async def process_job(job_id: str) -> None:
 
 # ─────────────────────────── Helpers ───────────────────────────
 
-async def _acquire_worker(job_id: str) -> dict:
+async def _acquire_worker(job_id: str, prefer_vip: bool = False) -> dict:
     """
     Đợi idle worker. Nếu chưa có, trigger scale_up.
     Retry scale_up mỗi 60 giây nếu vẫn không có worker.
@@ -167,7 +170,7 @@ async def _acquire_worker(job_id: str) -> dict:
     last_scale_up = 0  # seconds elapsed tại lần scale_up cuối
 
     for elapsed in range(timeout):
-        worker = await pool.get_idle_worker()
+        worker = await pool.get_idle_worker(prefer_vip=prefer_vip)
         if worker:
             return worker
 
@@ -205,8 +208,20 @@ async def _callback_n8n(
     """POST callback tới n8n webhook (per-job callback_url có ưu tiên cao hơn global N8N_CALLBACK_URL)."""
     job_data = await jobs.get(job_id)
 
-    # Ưu tiên callback_url được set trong job, fallback sang global setting
-    callback_url = (job_data or {}).get("callback_url", "") or settings.N8N_CALLBACK_URL
+    # Ưu tiên callback_url được set trong job (n8n truyền khi submit)
+    # Nếu không có → dùng URL riêng theo output_type → fallback legacy
+    per_job_url  = (job_data or {}).get("callback_url", "")
+    output_type  = (job_data or {}).get("output_type", "video")
+
+    if per_job_url:
+        callback_url = per_job_url
+    elif output_type == "image" and settings.N8N_IMG_CALLBACK_URL:
+        callback_url = settings.N8N_IMG_CALLBACK_URL
+    elif output_type == "video" and settings.N8N_VID_CALLBACK_URL:
+        callback_url = settings.N8N_VID_CALLBACK_URL
+    else:
+        callback_url = settings.N8N_CALLBACK_URL
+
     if not callback_url:
         logger.debug(f"[processor] no callback_url for job={job_id}, skip")
         return
@@ -221,6 +236,8 @@ async def _callback_n8n(
         "personality":     (job_data or {}).get("personality", ""),
         "user_id":         (job_data or {}).get("user_id", ""),
         "updated_at":      (job_data or {}).get("updated_at", ""),
+        "output_type":     (job_data or {}).get("output_type", "video"),
+        "job_label":       (job_data or {}).get("job_label", ""),
     }
 
     logger.info(f"[processor] callback → {callback_url} status={status}")

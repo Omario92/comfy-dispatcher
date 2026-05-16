@@ -53,7 +53,8 @@ class RunPodClient:
                     
                     env_vars = []
                     if settings.COMFYUI_ARGS:
-                        env_vars.append({"key": "COMFYUI_ARGS", "value": settings.COMFYUI_ARGS})
+                        args = settings.COMFYUI_ARGS.strip('"')
+                        env_vars.append({"key": "COMFYUI_ARGS", "value": args})
                     
                     if env_vars:
                         variables["input"]["env"] = env_vars

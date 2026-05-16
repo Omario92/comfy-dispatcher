@@ -63,26 +63,25 @@ class WorkerPool:
         raw = await r.hget(settings.WORKERS_KEY, pod_id)
         return json.loads(raw) if raw else None
 
-    async def get_idle_worker(self) -> dict | None:
+    async def get_idle_worker(self, prefer_vip: bool = False) -> dict | None:
         """
         Trả về idle worker để nhận job.
-        Ưu tiên: Pod VIP (pinned) trước → Pod thường sau.
+        prefer_vip=True (high-priority jobs): VIP pods trước → thường sau.
+        prefer_vip=False (normal jobs): thường trước → VIP chỉ dùng khi không còn pod nào khác.
         """
         now = int(time.time())
         workers = await self.list_workers()
         idle = [w for w in workers if w["status"] == "idle"]
 
-        # Ưu tiên 1: Pod VIP (pinned_until > now)
-        vip = [w for w in idle if w.get("pinned_until", 0) > now]
-        if vip:
-            return vip[0]
-
-        # Ưu tiên 2: Pod thường (không pinned hoặc pin đã hết hạn)
+        vip    = [w for w in idle if w.get("pinned_until", 0) > now]
         normal = [w for w in idle if w.get("pinned_until", 0) <= now]
-        if normal:
-            return normal[0]
 
-        return None
+        if prefer_vip:
+            # High-priority: VIP first, then normal
+            return (vip or normal or [None])[0]
+        else:
+            # Normal: avoid spending VIP pods, prefer normal workers
+            return (normal or vip or [None])[0]
 
     async def mark_busy(self, pod_id: str, job_id: str):
         await self._update(pod_id, status="busy", current_job=job_id,

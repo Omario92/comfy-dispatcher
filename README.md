@@ -9,31 +9,61 @@ Hệ thống **Dispatcher** bất đồng bộ cho dịch vụ AI Faceswap dựa
 ```
 WordPress/n8n
     │
-    ▼  POST /jobs  (workflow JSON + callback_url)
-┌──────────────────────────────────────────────────┐
-│            DISPATCHER  (Railway - FastAPI)        │
-│                                                  │
-│  ┌──────────┐   ┌──────────┐   ┌─────────────┐  │
-│  │ job_store│   │ autoscaler│  │ worker_pool │  │
-│  │ (Redis)  │   │ (loop)    │  │ (Redis)     │  │
-│  └────┬─────┘   └─────┬────┘   └──────┬──────┘  │
-│       │               │               │          │
-│       └───────── job_processor ────────┘          │
-│                       │                          │
-└───────────────────────┼──────────────────────────┘
-                        │ RunPod API
-                        ▼
-              ┌─────────────────────┐
-              │   GPU Pod (RunPod)  │
-              │  ComfyUI :8188      │
-              │  WAN 14B model      │
-              └──────────┬──────────┘
-                         │ kết quả
-                         ▼
-                  Cloudflare R2
-                         │
-                         ▼
-                  n8n Webhook → WordPress
+    ├─ POST /jobs  (image job — priority: high)  ──┐
+    └─ POST /jobs  (video job — priority: normal) ──┤
+                                                    ▼
+┌──────────────────────────────────────────────────────┐
+│              DISPATCHER  (Railway - FastAPI)          │
+│                                                      │
+│  ┌──────────┐   ┌──────────┐   ┌───────────────────┐ │
+│  │ job_store│   │ autoscaler│  │    worker_pool    │ │
+│  │ (Redis)  │   │ (loop)    │  │ VIP-first dispatch│ │
+│  └────┬─────┘   └─────┬────┘   └────────┬──────────┘ │
+│       │               │                 │             │
+│       └───────── job_processor ──────────┘             │
+│                  (2 tasks parallel)                   │
+└──────────────────────────┬───────────────────────────┘
+                           │ RunPod API
+                           ▼
+                 ┌─────────────────────┐
+                 │   GPU Pod (RunPod)  │
+                 │  ComfyUI :8188      │
+                 │  WAN 14B model      │
+                 └──────────┬──────────┘
+                            │ kết quả
+                            ▼
+                     Cloudflare R2
+                            │
+                            ▼
+                     n8n Webhook → WordPress
+```
+
+### Dual-Job Parallel Flow (v2.0)
+
+```
+User upload ảnh
+     │
+     ▼
+PHP Proxy /swap
+     │ tạo image_job_id + video_job_id
+     │ gửi n8n (fire & forget)
+     │ trả cả 2 ID về frontend ngay
+     ├──────────────────────────────────┐
+     ▼                                  ▼
+n8n submit IMAGE job                n8n submit VIDEO job
+  priority: high                      priority: normal
+  output_type: image                  output_type: video
+     │                                  │
+     ▼ (ưu tiên VIP pod)               ▼ (dùng normal pod)
+Dispatcher render nhanh           Dispatcher render nền
+     │                                  │
+     ▼ callback → PHP /result           ▼ callback → PHP /result
+  output_type: image               output_type: video
+     │                                  │
+     ▼                                  ▼
+Frontend poll 3s                  Frontend poll 5s (background)
+→ showQuickImageResult()          → preloadVideoInBackground()
+→ Step-06 hiện ngay               → enable nút "LẤY VIDEO ĐẦY ĐỦ"
 ```
 
 ---
@@ -126,7 +156,7 @@ queued
 ```
 
 Mỗi job được lưu trong Redis key `jobs:status:{job_id}` dưới dạng HASH với các field:
-`job_id`, `status`, `pod_id`, `comfy_endpoint`, `comfy_prompt_id`, `result_url`, `error`, `personality`, `user_id`, `user_image_url`, `callback_url`, `created_at`, `updated_at`
+`job_id`, `status`, `pod_id`, `comfy_endpoint`, `comfy_prompt_id`, `result_url`, `error`, `personality`, `user_id`, `user_image_url`, `callback_url`, `priority`, `output_type`, `job_label`, `created_at`, `updated_at`
 
 ---
 
@@ -145,11 +175,20 @@ Mỗi job được lưu trong Redis key `jobs:status:{job_id}` dưới dạng HA
 {
   "personality": 1,
   "image_url": "https://...",
-  "workflow": { ...ComfyUI workflow JSON... },
+  "workflow": { "...": "ComfyUI workflow JSON" },
   "callback_url": "https://n8n.../webhook/...",
-  "user_id": "wp_user_123"
+  "user_id": "wp_user_123",
+  "priority": "high",
+  "output_type": "image",
+  "job_label": "image_preview"
 }
 ```
+
+| Field | Giá trị | Mặc định | Mô tả |
+|-------|---------|----------|-------|
+| `priority` | `"high"` \| `"normal"` | `"normal"` | `high` → ưu tiên VIP pod (RTX 5090 / Blackwell) |
+| `output_type` | `"image"` \| `"video"` | `"video"` | Loại output — gửi kèm trong callback về n8n/PHP |
+| `job_label` | string tùy ý | `""` | Nhãn tuỳ chọn — gửi kèm trong callback để n8n phân luồng |
 
 ### Worker (internal — gọi từ Pod)
 
@@ -192,7 +231,7 @@ Invoke-RestMethod -Uri https://comfy-dispatcher-production.up.railway.app/admin/
 Invoke-RestMethod -Uri https://comfy-dispatcher-production.up.railway.app/admin/warmup-cancel -Method Post
 ```
 
-**GPU ưu tiên VIP** (theo thứ tự): RTX PRO 6000 Blackwell → RTX 5090 → L40S → A100 80GB
+**GPU ưu tiên VIP** (theo thứ tự): RTX PRO 6000 Blackwell → RTX 5090 → L40S
 
 - Pod VIP **không bao giờ bị autoscaler tắt** trong thời gian ghim
 - Job mới **ưu tiên dispatch vào pod VIP** trước pod thường
@@ -238,6 +277,73 @@ Invoke-RestMethod -Uri https://comfy-dispatcher-production.up.railway.app/admin/
 - **Image**: `omaryo92/comfyui-deps:v2.0` (ComfyUI + WAN 14B + custom nodes)
 - **Ports**: `8188/http` (ComfyUI), `9000/http` (Worker Agent)
 - **Network Volume**: mount `/workspace` chứa models
+
+---
+
+## 🔀 PHP Proxy — Dual-Job API (v2.0)
+
+File: `Front End/PHP/lh-faceswap-proxy.php`
+
+### `/swap` response (v2.0)
+```json
+{
+  "success": true,
+  "status": "pending",
+  "image_job_id": "lhfs_img_xxxxxxxxxxxx",
+  "video_job_id": "lhfs_vid_xxxxxxxxxxxx",
+  "message": "Đang xử lý song song image + video...",
+  "poll_interval": 3000
+}
+```
+
+### `/result` callback từ n8n (v2.0)
+Phân nhánh theo `output_type`:
+
+| `output_type` | Fields được lưu vào transient |
+|--------------|-------------------------------|
+| `"image"` | `image_url`, `preview_url`, `img-personality` |
+| `"video"` | `video_url`, `img-personality` |
+
+### `/status` response khi done
+```json
+{
+  "success": true,
+  "status": "done",
+  "output_type": "image",
+  "image_url": "https://pub-xxx.r2.dev/outputs/lhfs_img_xxx/face.jpg",
+  "img-personality": "https://..."
+}
+```
+
+---
+
+## 🎨 Frontend — Parallel Polling (v2.0)
+
+File: `Front End/Elementor JS/frontend_script.html`
+
+### State
+```js
+state = {
+  selectedFile, imageJobId, videoJobId,
+  imageResult, videoUrl, currentVideoUrl, transitioning
+}
+```
+
+### Polling flow
+```
+/swap response
+  ├─ image_job_id → pollJobResult(3s) → showQuickImageResult() → Step-06
+  └─ video_job_id → pollJobResult(5s) → preloadVideoInBackground()
+                                                 │
+                                     enable #btn-get-video + pulse
+```
+
+### Elementor elements cần thêm vào Step-06
+| Element ID | Loại | Mục đích |
+|-----------|------|---------|
+| `#result-image` | `<img>` | Hiển thị ảnh preview khi image job xong |
+| `#btn-get-video` | `<button>` | Kích hoạt sau khi video sẵn sàng |
+| `#video-status-hint` | `<div>` | Text trạng thái "Ảnh sẵn sàng / Video đang tạo..." |
 
 ---
 

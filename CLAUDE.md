@@ -31,10 +31,7 @@
   - **src/worker_pool.py**: `get_idle_worker(prefer_vip=False)` — `prefer_vip=True` (high-priority): chọn VIP pod trước; `prefer_vip=False` (normal): tránh VIP pod, tiết kiệm cho image jobs.
   - **src/job_processor.py**: Đọc priority ngay khi start; gọi `_acquire_worker(prefer_vip=True)` cho high-priority jobs; `_callback_n8n` payload bổ sung `output_type` và `job_label`.
   - **lh-faceswap-proxy.php** (v2.0): `/swap` tạo 2 job ID riêng (`lhfs_img_xxx`, `lhfs_vid_xxx`), lưu 2 transient, trả cả 2 ID về frontend; `/result` xử lý `output_type` — image lưu `image_url`/`preview_url`, video lưu `video_url`; `/status` chấp nhận mọi prefix `lhfs_`.
-  - **frontend_script.html** (v2.0): State thêm `imageJobId`, `videoJobId`, `imageResult`, `videoUrl`; `pollJobResult()` generic; sau `/swap` poll image (3s) song song với video (5s background); `showQuickImageResult()` chuyển Step-06 ngay khi image xong; `preloadVideoInBackground()` load video ẩn + enable `#btn-get-video`; click `#btn-get-video` → hiện video section + autoplay + scroll; `resetUploadForm()` reset đầy đủ state mới; CSS mới cho `#result-image`, `.video-section-hidden`, `#btn-get-video` pulse, `#video-status-hint`.
-
-
-
+  - **frontend_script.html** (v2.0): State thêm `imageJobId`, `videoJobId`, `imageResult`, `videoUrl`; `pollJobResult()` generic; sau `/swap` poll image (3s) song song with video (5s background); `showQuickImageResult()` chuyển Step-06 ngay khi image xong; `preloadVideoInBackground()` load video ẩn + enable `#btn-get-video`; click `#btn-get-video` → hiện video section + autoplay + scroll; `resetUploadForm()` reset đầy đủ state mới; CSS mới cho `#result-image`, `.video-section-hidden`, `#btn-get-video` pulse, `#video-status-hint`.
 
 ## vexp <!-- vexp v2.0.12 -->
 

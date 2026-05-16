@@ -4,6 +4,7 @@ import time
 import uuid
 import httpx
 from contextlib import asynccontextmanager
+from typing import Literal, Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from loguru import logger
@@ -80,6 +81,9 @@ class SubmitJobReq(BaseModel):
     user_id: str = ""
     job_id: str = ""
     callback_url: str = ""
+    priority: Literal["high", "normal"] = "normal"
+    output_type: Literal["image", "video"] = "video"
+    job_label: Optional[str] = None
 
     @property
     def resolved_image_url(self) -> str:
@@ -266,7 +270,6 @@ class WarmupReq(BaseModel):
         "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
         "NVIDIA GeForce RTX 5090",
         "NVIDIA L40S",
-        "NVIDIA A100 80GB PCIe",
     ]
 
 
@@ -641,6 +644,9 @@ async def submit_job(req: SubmitJobReq):
         workflow=req.workflow,
         callback_url=req.callback_url,
         user_id=req.user_id,
+        priority=req.priority,
+        output_type=req.output_type,
+        job_label=req.job_label or "",
     )
 
     # Fire-and-forget — KHÔNG await, n8n nhận job_id ngay lập tức
@@ -648,6 +654,7 @@ async def submit_job(req: SubmitJobReq):
 
     logger.info(
         f"[submit] job_id={job_id} personality={req.personality} "
+        f"priority={req.priority} output_type={req.output_type} "
         f"user_id={req.user_id} callback={bool(req.callback_url)} "
         f"image={image_url[:60]}"
     )
