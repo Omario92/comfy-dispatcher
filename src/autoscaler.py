@@ -59,16 +59,19 @@ async def _tick():
 
     is_peak, idle_timeout, min_workers = peak_hours_status()
 
-    # Đếm idle pod theo type để biết đang thiếu loại nào
-    idle_by_type = await pool.count_idle_by_type()
-    idle_image = idle_by_type.get("image", 0) + idle_by_type.get("any", 0)
-    idle_video = idle_by_type.get("video", 0) + idle_by_type.get("any", 0)
+    # Đếm pod active (idle + booting) theo type
+    # QUAN TRỌNG: phải kể cả pod ĐANG BOOT, không chỉ idle
+    # → tránh vòng lặp tạo 10 pod cho 1 job khi pod vẫn đang boot
+    active_by_type = await pool.count_active_by_type()
+    active_image = active_by_type.get("image", 0) + active_by_type.get("any", 0)
+    active_video = active_by_type.get("video", 0) + active_by_type.get("any", 0)
 
     logger.info(
         f"[autoscale] queue={queue_depth} (img_pending={image_pending} vid_pending={video_pending}) "
         f"total={counts['total']} idle={counts['idle']} "
         f"busy={counts['busy']} booting={counts['booting']} "
         f"stopped={counts['stopped']} | "
+        f"active_image={active_image} active_video={active_video} | "
         f"{'PEAK' if is_peak else 'off-peak'} "
         f"pause={settings.PAUSE_TIMEOUT_SEC}s "
         f"terminate={settings.TERMINATE_TIMEOUT_SEC}s "
@@ -85,23 +88,24 @@ async def _tick():
                 counts["total"] += 1
 
     # ---- Smart scale-up theo type -----------------------------------------------
-    # Image pod: respond nhanh → ít pod hơn, chỉ scale khi thật sự cần
-    # Video pod: render lâu → cần pod sẵn sàng nhiều hơn
-    available_total = counts["idle"] + counts["booting"]
+    # Chỉ tạo pod mới khi CHƯA có pod idle OR booting cùng type.
+    # Mỗi lần _tick() chỉ tạo TỐI ĐA 1 pod image + 1 pod video.
+    # Pod mới boot xong → active_image/active_video tăng → tick tiếp không tạo thêm.
 
-    # Scale up cho image jobs đang pending mà không có pod idle image
-    if image_pending > 0 and idle_image == 0 and counts["total"] < settings.MAX_WORKERS:
-        logger.info(f"[autoscale] SCALE UP (image) — {image_pending} image jobs pending, no idle image pod")
+    # Scale up cho image jobs đang pending mà chưa có pod image nào active
+    if image_pending > 0 and active_image == 0 and counts["total"] < settings.MAX_WORKERS:
+        logger.info(f"[autoscale] SCALE UP (image) — {image_pending} image jobs pending, active_image=0")
         await scale_up(worker_type="image")
         counts["total"] += 1
 
-    # Scale up cho video jobs đang pending mà không có pod idle video
-    if video_pending > 0 and idle_video == 0 and counts["total"] < settings.MAX_WORKERS:
-        logger.info(f"[autoscale] SCALE UP (video) — {video_pending} video jobs pending, no idle video pod")
+    # Scale up cho video jobs đang pending mà chưa có pod video nào active
+    if video_pending > 0 and active_video == 0 and counts["total"] < settings.MAX_WORKERS:
+        logger.info(f"[autoscale] SCALE UP (video) — {video_pending} video jobs pending, active_video=0")
         await scale_up(worker_type="video")
         counts["total"] += 1
 
-    # Fallback: nếu có job trong queue mà không có pod nào sẵn → scale up "any"
+    # Fallback: nếu có job trong queue mà không có pod nào sẵn → resume stopped hoặc scale up "any"
+    available_total = counts["idle"] + counts["booting"]
     if queue_depth > 0 and available_total == 0:
         stopped = await pool.get_stopped_workers()
         if stopped:
@@ -113,6 +117,7 @@ async def _tick():
                 if ok:
                     await pool.mark_booting(pod_to_resume["pod_id"],
                                             worker_type=pod_to_resume.get("worker_type", "any"))
+
             except Exception as e:
                 logger.error(f"[autoscale] resume failed: {e}")
         elif counts["total"] < settings.MAX_WORKERS:

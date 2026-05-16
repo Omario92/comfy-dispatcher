@@ -121,6 +121,17 @@ class WorkerPool:
                 result[wt] = result.get(wt, 0) + 1
         return result
 
+    async def count_active_by_type(self) -> dict:
+        """Đếm số pod idle + booting theo worker_type.
+        Dùng để autoscaler KHÔNG tạo thêm pod khi đã có pod đang boot."""
+        workers = await self.list_workers()
+        result = {"image": 0, "video": 0, "any": 0}
+        for w in workers:
+            if w.get("status") in ("idle", "booting"):
+                wt = w.get("worker_type", "any")
+                result[wt] = result.get(wt, 0) + 1
+        return result
+
     async def mark_busy(self, pod_id: str, job_id: str):
         await self._update(pod_id, status="busy", current_job=job_id,
                           last_active=int(time.time()))
