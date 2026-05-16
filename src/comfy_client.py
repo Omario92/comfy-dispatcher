@@ -119,7 +119,6 @@ class AsyncComfyWebSocketClient:
                     continue
 
                 try:
-                    import json
                     data: dict = json.loads(raw_message)
                     msg_type: str = data.get("type", "")
                     msg_data: dict = data.get("data", {})
