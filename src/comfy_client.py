@@ -112,41 +112,22 @@ class AsyncComfyWebSocketClient:
     # ── Listen loop ───────────────────────────────────────────────────────
 
     async def _listen_loop(self) -> None:
-        """
-        Nhận message real-time từ ComfyUI WebSocket.
-
-        ComfyUI gửi nhiều loại event:
-          - status          : queue status
-          - progress        : step progress
-          - executing       : node đang chạy
-          - execution_cached: node dùng cache
-          - executed        : 1 node hoàn thành (có output files)
-          - execution_success / execution_complete : toàn bộ prompt xong
-          - execution_error : lỗi
-
-        Ta chỉ cần lắng nghe execution_success / execution_error để resolve Future.
-        """
         try:
             async for raw_message in self._ws:
-                # ComfyUI can send binary live-preview frames over the same socket.
-                # They are not JSON events and should not wake/resolve listeners.
+                # Bỏ qua binary preview frame (Live Preview)
                 if isinstance(raw_message, (bytes, bytearray)):
-                    logger.debug("[comfy-ws] skipped binary preview frame")
                     continue
 
                 try:
+                    import json
                     data: dict = json.loads(raw_message)
                     msg_type: str = data.get("type", "")
                     msg_data: dict = data.get("data", {})
 
-                    # prompt_id có thể nằm trong data hoặc top-level
                     prompt_id: str = msg_data.get("prompt_id") or data.get("prompt_id", "")
 
-                    logger.debug(
-                        f"[comfy-ws] ← {msg_type} | prompt_id={prompt_id or '?'}"
-                    )
+                    logger.debug(f"[comfy-ws] ← {msg_type} | prompt_id={prompt_id or '?'}")
 
-                    # ── Xử lý event kết thúc ────────────────────────────
                     is_completed = False
                     is_error = False
 
@@ -162,19 +143,12 @@ class AsyncComfyWebSocketClient:
                             future = self._listeners.pop(prompt_id, None)
                             if future and not future.done():
                                 if is_error:
-                                    # Ghi lỗi vào Future để caller xử lý
                                     err_msg = msg_data.get("exception_message", "Unknown ComfyUI error")
-                                    future.set_exception(
-                                        RuntimeError(f"ComfyUI execution_error: {err_msg}")
-                                    )
-                                    logger.error(
-                                        f"[comfy-ws] ❌ Prompt {prompt_id} error: {err_msg}"
-                                    )
+                                    future.set_exception(RuntimeError(f"ComfyUI execution_error: {err_msg}"))
+                                    logger.error(f"[comfy-ws] Prompt {prompt_id} error: {err_msg}")
                                 else:
                                     future.set_result(data)
-                                    logger.info(
-                                        f"[comfy-ws] ✅ Prompt {prompt_id} completed (real-time)"
-                                    )
+                                    logger.info(f"[comfy-ws] Prompt {prompt_id} completed (real-time)")
 
                 except Exception as parse_err:
                     logger.warning(f"[comfy-ws] Message parse error: {parse_err}")
@@ -185,7 +159,6 @@ class AsyncComfyWebSocketClient:
             logger.error(f"[comfy-ws] Listen loop error: {e}")
         finally:
             self._connected = False
-            # Trigger reconnect nếu chưa đóng chủ động
             if not self._is_closing:
                 logger.info("[comfy-ws] Scheduling reconnect...")
                 asyncio.create_task(self._reconnect())

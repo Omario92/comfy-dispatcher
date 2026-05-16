@@ -40,6 +40,7 @@
   - **src/main.py**: `RegisterPodReq` thêm `worker_type`. `/admin/register-pod`, `/admin/warmup`, `/admin/scale-up` đều nhận và truyền `worker_type`.
   - **src/config.py**: Thêm `IMAGE_PENDING_KEY` và `VIDEO_PENDING_KEY` (Redis counter keys).
   - **Backward-compat**: Pod cũ không có `worker_type` được treat là `"any"` → nhận mọi loại job.
+- [2026-05-16] Bugfix WebSocket binary parsing: Sửa lỗi codec utf-32-be bằng cách bỏ qua binary frames (Live Preview) trong `comfy_client.py` và tối ưu lại `_listen_loop` để latency real-time ổn định hơn.
 - [2026-05-16] Autoscaler & Job Routing Fixes:
   - **Bugfix (4 pods per job)**: Loại bỏ duplicate `scale_up` gọi từ cả `autoscaler.py` và `job_processor.py`. Sửa logic `_acquire_worker` kiểm tra active pod theo đúng `worker_type` thay vì kiểm tra tổng, giúp video jobs không bị block khi image pods đang boot.
   - **PHP Personality Map**: Thêm `PERSONALITY_IMG_MAP` vào `lh-faceswap-proxy.php` để map số personality (0-5) từ Dispatcher sang URL ảnh thật khi dùng fallback `dispatcher_direct` (bypass n8n).
