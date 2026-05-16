@@ -792,6 +792,9 @@
       DOM.btnGetVideo.addEventListener("click", () => {
         if (!state.videoUrl) return;
 
+        // Ẩn ảnh preview để video không bị che khuất (cả 2 đều absolute)
+        if (DOM.resultImage) DOM.resultImage.classList.remove("visible");
+
         // Hiện video section
         if (DOM.resultVideo) {
           DOM.resultVideo.classList.remove("video-section-hidden");
@@ -811,6 +814,7 @@
         DOM.resultVideo?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     }
+
 
 
     /* ============================================================
