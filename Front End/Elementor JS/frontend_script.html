@@ -1,0 +1,962 @@
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+
+    /* ============================================================
+       0. INJECT TRANSITION STYLES
+       All step animation CSS lives here — no external stylesheet needed.
+    ============================================================ */
+    const styleEl = document.createElement("style");
+    styleEl.textContent = `
+    /* Base step styles */
+    .step-managed {
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.35s ease, transform 0.35s ease;
+      will-change: transform, opacity;
+      pointer-events: none;
+    }
+    .step-managed.step-active {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    /* Slide-up variant for forward navigation */
+    .step-managed.step-from-below {
+      transform: translateY(18px);
+    }
+    /* Slide-down variant for back navigation */
+    .step-managed.step-from-above {
+      transform: translateY(-10px);
+    }
+    /* Loading pulse on preview image during processing */
+    #loading-image-preview {
+      animation: none;
+    }
+    #loading-image-preview.is-loading {
+      animation: imgPulse 1.6s ease-in-out infinite;
+    }
+    @keyframes imgPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.55; }
+    }
+    /* Upload button micro-states */
+    #upload-button {
+      transition: opacity 0.2s ease, transform 0.15s ease;
+    }
+    #upload-button:not(:disabled):hover  { opacity: 0.88; }
+    #upload-button:not(:disabled):active { transform: scale(0.97); }
+    #upload-button:disabled { cursor: not-allowed; }
+    /* Result video fade-in */
+    #result-video video {
+      transition: opacity 0.5s ease;
+    }
+    #result-video video.video-hidden { opacity: 0; }
+    #result-video video.video-visible { opacity: 1; }
+    /* Result image preview (quick image before video) */
+    /* #result-image là Elementor widget DIV — ẩn bằng opacity thay vì display:none
+       để tránh xung đột với Elementor absolute positioning */
+    #result-image {
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      pointer-events: none;
+    }
+    #result-image.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    /* result-video container hidden until user clicks */
+    #result-video.video-section-hidden { display: none !important; }
+    /* btn-get-video disabled state */
+    #btn-get-video:disabled { opacity: 0.45; cursor: not-allowed; }
+    #btn-get-video.video-ready { animation: pulseReady 1.4s ease-in-out 3; }
+    @keyframes pulseReady {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+    /* Status hint below image in step-06 */
+    #video-status-hint {
+      font-size: 0.82em;
+      opacity: 0.7;
+      margin-top: 6px;
+      text-align: center;
+    }
+    /* Generic btn micro-animation */
+    .btn-action {
+      transition: opacity 0.2s ease, transform 0.15s ease;
+    }
+    .btn-action:hover  { opacity: 0.85; }
+    .btn-action:active { transform: scale(0.97); }
+  `;
+    document.head.appendChild(styleEl);
+
+
+    /* ============================================================
+       1. ENVIRONMENT CHECK
+    ============================================================ */
+    const isEditor = document.body.classList.contains("elementor-editor-active");
+
+
+    /* ============================================================
+       2. CACHE ALL DOM ELEMENTS (query once, reuse everywhere)
+    ============================================================ */
+    const DOM = {
+      step02: document.getElementById("step-02"),
+      step03: document.getElementById("step-03"),
+      step04: document.getElementById("step-04"),
+      step05: document.getElementById("step-05"),
+      step06: document.getElementById("step-06"),
+
+      btnNhapTiec: document.getElementById("btn-nhap-tiec"),
+      dropZone: document.getElementById("drop-zone"),
+      fileInput: document.getElementById("file-input"),
+      imagePreview: document.getElementById("image-preview"),
+      placeholder: document.getElementById("placeholder"),
+      confirmCheckbox: document.getElementById("confirm-checkbox"),
+      uploadButton: document.getElementById("upload-button"),
+      btnTryAgain: document.getElementById("btn-try-again"),
+
+      step5Loading: document.getElementById("step5-loading"),
+      loadingImagePreview: document.getElementById("loading-image-preview"),
+
+      resultVideo: document.getElementById("result-video"),
+      resultImage: document.getElementById("result-image"),
+      // resultImageEl: <img> thực sự bên trong Elementor widget #result-image
+      // Elementor render: #result-image > .elementor-widget-container > img
+      get resultImageEl() {
+        return document.querySelector("#result-image .elementor-widget-container img") ||
+               document.querySelector("#result-image img");
+      },
+      btnDownload: document.getElementById("btn-download"),
+      btnShare: document.getElementById("btn-share"),
+      btnGetVideo: document.getElementById("btn-get-video"),
+      videoStatusHint: document.getElementById("video-status-hint"),
+      imgPersonality: document.getElementById("img-personality"),
+
+      btnOver18: document.getElementById("btn-over-18"),
+      btnCloseZaloPopup: document.getElementById("btn-close-pop-up-zalo"),
+    };
+
+
+    /* ============================================================
+       3. APPLICATION STATE
+    ============================================================ */
+    let state = {
+      selectedFile: null,
+      imageJobId: null,
+      videoJobId: null,
+      imageResult: null,
+      videoUrl: null,
+      currentVideoUrl: "",
+      transitioning: false,
+    };
+
+    async function getFreshNonce() {
+      try {
+        const res = await fetch('/wp-json/faceswap/v1/token');
+        if (!res.ok) return window.LH_FACESWAP_NONCE || '';
+        const data = await res.json();
+        window.LH_FACESWAP_NONCE = data.token; // also update the cached value
+        return data.token;
+      } catch {
+        return window.LH_FACESWAP_NONCE || '';
+      }
+    }
+
+    // ================== FILE SIZE LIMIT (20MB) ==================
+    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB - đồng bộ với backend
+
+    /* ============================================================
+       4. STEP TRANSITION ENGINE
+       switchToStep(targetId, direction?)
+         direction: "forward" (default) | "back"
+       - Fades out the currently active step
+       - Fades in the target step with a subtle slide
+    ============================================================ */
+    const ALL_STEP_IDS = ["step-02", "step-03", "step-04", "step-05", "step-06"];
+
+    function initStepStyles() {
+      ALL_STEP_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.add("step-managed");
+        // Keep original display mode (flex) stored so we can restore it
+        el.dataset.displayMode = el.style.display || "flex";
+        el.style.display = "none";
+      });
+    }
+
+    function switchToStep(targetId, direction = "forward") {
+      if (state.transitioning) return;
+
+      const targetEl = document.getElementById(targetId);
+      if (!targetEl) return;
+
+      // Tự động ẩn banner từ step-03 trở đi và đổi background
+      const bannerEl = document.getElementById("banner");
+      if (["step-03", "step-04", "step-05", "step-06"].includes(targetId)) {
+        if (bannerEl) bannerEl.style.display = "none";
+        document.body.classList.add("bg-step-3-active");
+      } else {
+        if (bannerEl) bannerEl.style.display = ""; // Khôi phục display mặc định nếu quay lại step-02
+        document.body.classList.remove("bg-step-3-active");
+      }
+
+      // Find currently visible step
+      const currentEl = ALL_STEP_IDS
+        .map(id => document.getElementById(id))
+        .find(el => el && el.style.display !== "none" && el !== targetEl);
+
+      // Determine slide direction class
+      const enterClass = direction === "back" ? "step-from-above" : "step-from-below";
+
+      state.transitioning = true;
+
+      function showTarget() {
+        // Prep target: position off-screen (below or above), make visible but transparent
+        targetEl.classList.add(enterClass);
+        targetEl.classList.remove("step-active");
+        targetEl.style.display = targetEl.dataset.displayMode || "flex";
+
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            targetEl.classList.remove(enterClass);
+            targetEl.classList.add("step-active");
+
+            // Unlock after transition completes (with fallback for mobile Safari)
+            let fired = false;
+            const unlock = () => {
+              if (fired) return;
+              fired = true;
+              state.transitioning = false;
+            };
+            targetEl.addEventListener("transitionend", unlock, { once: true });
+            setTimeout(unlock, 450); // fallback
+          });
+        });
+      }
+
+      if (currentEl) {
+        // Fade out current step
+        currentEl.classList.remove("step-active");
+        let fired = false;
+        const hideCurrent = () => {
+          if (fired) return;
+          fired = true;
+          currentEl.style.display = "none";
+          showTarget();
+        };
+        currentEl.addEventListener("transitionend", hideCurrent, { once: true });
+        setTimeout(hideCurrent, 450); // fallback
+      } else {
+        // No current step — just show target directly
+        showTarget();
+      }
+    }
+
+    /* Convenience: show one step instantly (for initial load) */
+    function showStepInstant(targetId) {
+      ALL_STEP_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.display = "none";
+        el.classList.remove("step-active");
+      });
+      const targetEl = document.getElementById(targetId);
+      if (!targetEl) return;
+
+      // Logic ẩn/hiện banner và đổi background
+      const bannerEl = document.getElementById("banner");
+      if (["step-03", "step-04", "step-05", "step-06"].includes(targetId)) {
+        if (bannerEl) bannerEl.style.display = "none";
+        document.body.classList.add("bg-step-3-active");
+      } else {
+        if (bannerEl) bannerEl.style.display = "";
+        document.body.classList.remove("bg-step-3-active");
+      }
+
+      targetEl.style.display = targetEl.dataset.displayMode || "flex";
+      // Small rAF so the element paints before adding active class
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          targetEl.classList.add("step-active");
+        });
+      });
+    }
+
+
+    /* ============================================================
+       5. INITIAL SETUP
+    ============================================================ */
+    if (!isEditor) {
+      initStepStyles();
+      showStepInstant("step-02");
+    }
+
+
+    /* ============================================================
+       6. BUTTON STATE UTILITY
+       setButtonState(btn, 'loading' | 'disabled' | 'enabled' | 'success', label?)
+    ============================================================ */
+    function setButtonState(btn, stateType, label) {
+      if (!btn) return;
+      switch (stateType) {
+        case "loading":
+          btn.disabled = true;
+          btn.style.opacity = "0.7";
+          btn.style.cursor = "wait";
+          if (label) btn.innerHTML = label;
+          break;
+        case "disabled":
+          btn.disabled = true;
+          btn.style.opacity = "";
+          btn.style.cursor = "";
+          if (label) btn.innerHTML = label;
+          break;
+        case "enabled":
+          btn.disabled = false;
+          btn.style.opacity = "";
+          btn.style.cursor = "";
+          if (label) btn.innerHTML = label;
+          break;
+        case "success":
+          btn.disabled = true;
+          btn.style.opacity = "0.6";
+          btn.style.cursor = "default";
+          if (label) btn.innerHTML = label;
+          break;
+      }
+    }
+
+
+    /* ============================================================
+       IMAGE RESIZE — Nén ảnh xuống max 1024px trước khi upload
+       - Giữ tỉ lệ gốc (không méo ảnh)
+       - Nếu ảnh đã nhỏ hơn 1024px → vẫn re-encode để giảm dung lượng
+       - Output: JPEG quality 0.85 (PNG có alpha → nền trắng)
+       - HEIC/HEIF: nếu browser không decode được → fallback gửi file gốc
+    ============================================================ */
+    const MAX_DIMENSION = 1024;
+    const JPEG_QUALITY = 0.85;
+
+    function resizeImage(file) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(file);
+
+        img.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          let { width, height } = img;
+
+          const needsResize = width > MAX_DIMENSION || height > MAX_DIMENSION;
+          if (needsResize) {
+            const ratio = Math.min(MAX_DIMENSION / width, MAX_DIMENSION / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+
+          // Nền trắng cho ảnh có alpha (PNG → JPEG)
+          ctx.fillStyle = "#FFFFFF";
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) { resolve(file); return; }
+              const originalName = file.name.replace(/\.[^/.]+$/, "");
+              resolve(new File([blob], `${originalName}.jpg`, {
+                type: "image/jpeg",
+                lastModified: Date.now(),
+              }));
+            },
+            "image/jpeg",
+            JPEG_QUALITY
+          );
+        };
+
+        img.onerror = () => {
+          // HEIC trên Chrome/Firefox không decode được → gửi file gốc
+          URL.revokeObjectURL(objectUrl);
+          console.warn("[Resize] Không decode được ảnh, gửi file gốc:", file.name);
+          resolve(file);
+        };
+
+        img.src = objectUrl;
+      });
+    }
+
+    async function handleFile(file) {
+      if (!file) return;
+
+      // === 1. KIỂM TRA DUNG LƯỢNG ===
+      if (file.size > MAX_FILE_SIZE) {
+        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        alert(`❌ File quá lớn!\n\nDung lượng file: ${sizeMB} MB\nGiới hạn tối đa: 20 MB\n\nVui lòng chọn file nhỏ hơn.`);
+        if (DOM.fileInput) DOM.fileInput.value = "";
+        return;
+      }
+
+      // === 2. KIỂM TRA ĐỊNH DẠNG ===
+      if (!file.type.startsWith("image/")) {
+        alert("Vui lòng chọn file hình ảnh!");
+        if (DOM.fileInput) DOM.fileInput.value = "";
+        return;
+      }
+
+      // === 3. RESIZE XUỐNG MAX 1024px (giữ tỉ lệ) ===
+      if (DOM.placeholder) DOM.placeholder.style.opacity = "0.5";
+
+      let processedFile;
+      try {
+        processedFile = await resizeImage(file);
+        console.log(
+          `[Resize] ${file.name}: ${(file.size / 1024).toFixed(0)}KB → ${(processedFile.size / 1024).toFixed(0)}KB`
+        );
+      } catch (err) {
+        console.error("[Resize] Error:", err);
+        processedFile = file;
+      } finally {
+        if (DOM.placeholder) DOM.placeholder.style.opacity = "";
+      }
+
+      // File hợp lệ — lưu file đã nén
+      state.selectedFile = processedFile;
+      const reader = new FileReader();
+      reader.onload = e => {
+        if (DOM.placeholder) DOM.placeholder.style.display = "none";
+        if (DOM.imagePreview) {
+          DOM.imagePreview.src = e.target.result;
+          DOM.imagePreview.style.display = "block";
+          void DOM.imagePreview.offsetWidth;
+          DOM.imagePreview.style.opacity = "1";
+        }
+      };
+      reader.readAsDataURL(processedFile);
+      syncUploadButton();
+    }
+
+    function syncUploadButton() {
+      const ready = !!(state.selectedFile && DOM.confirmCheckbox?.checked);
+      if (DOM.uploadButton) DOM.uploadButton.disabled = !ready;
+    }
+
+    function resetUploadForm() {
+      state.selectedFile = null;
+      state.imageJobId = null;
+      state.videoJobId = null;
+      state.imageResult = null;
+      state.videoUrl = null;
+      // Reset btn-get-video for next session
+      if (DOM.btnGetVideo) {
+        DOM.btnGetVideo.disabled = true;
+        DOM.btnGetVideo.textContent = "VIDEO ĐANG TẠO...";
+        DOM.btnGetVideo.style.display = "";
+        DOM.btnGetVideo.classList.remove("video-ready");
+      }
+      if (DOM.videoStatusHint) { DOM.videoStatusHint.textContent = ""; DOM.videoStatusHint.style.display = ""; }
+      if (DOM.resultVideo) DOM.resultVideo.classList.remove("video-section-hidden");
+      if (DOM.resultImage) {
+        DOM.resultImage.classList.remove("visible");
+        // Clear img src bên trong widget
+        const imgEl = DOM.resultImageEl;
+        if (imgEl) imgEl.src = "";
+      }
+      if (DOM.fileInput) {
+        DOM.fileInput.value = "";
+        DOM.fileInput.style.pointerEvents = "auto";
+      }
+      if (DOM.placeholder) DOM.placeholder.style.display = "flex";
+      if (DOM.imagePreview) {
+        DOM.imagePreview.style.display = "none";
+        DOM.imagePreview.src = "";
+        DOM.imagePreview.style.opacity = "";
+      }
+      if (DOM.confirmCheckbox) DOM.confirmCheckbox.checked = false;
+      setButtonState(DOM.uploadButton, "disabled", "TẢI ẢNH LÊN");
+      // Stop loading pulse
+      if (DOM.loadingImagePreview) DOM.loadingImagePreview.classList.remove("is-loading");
+    }
+
+    function cloneFormData(original) {
+      const cloned = new FormData();
+      for (const [key, value] of original.entries()) cloned.append(key, value);
+      return cloned;
+    }
+
+    if (DOM.dropZone) {
+      DOM.fileInput.addEventListener("change", e => {
+        if (e.target.files[0]) handleFile(e.target.files[0]);
+      });
+      DOM.dropZone.addEventListener("dragover", e => { e.preventDefault(); DOM.dropZone.classList.add("dragover"); });
+      DOM.dropZone.addEventListener("dragleave", () => DOM.dropZone.classList.remove("dragover"));
+      DOM.dropZone.addEventListener("drop", e => {
+        e.preventDefault();
+        DOM.dropZone.classList.remove("dragover");
+        if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+      });
+    }
+
+    if (DOM.confirmCheckbox) DOM.confirmCheckbox.addEventListener("change", syncUploadButton);
+
+
+    /* ============================================================
+       8. STEP NAVIGATION — SIMPLE CLICK EVENTS
+    ============================================================ */
+    if (DOM.btnNhapTiec) {
+      DOM.btnNhapTiec.addEventListener("click", e => {
+        e.preventDefault();
+        switchToStep("step-03");
+      });
+    }
+
+    if (DOM.btnTryAgain) {
+      DOM.btnTryAgain.addEventListener("click", () => {
+        resetUploadForm();
+        switchToStep("step-03", "back");
+      });
+    }
+
+
+    /* ============================================================
+       9. STEP-06 RESULT FUNCTIONS (v2.0 — Dual-Job Parallel)
+    ============================================================ */
+
+    // Called as soon as the IMAGE job finishes — switches to step-06 immediately
+    function showQuickImageResult(result) {
+      if (!result) return;
+      state.imageResult = result;
+
+      // Personality image
+      if (result["img-personality"] && DOM.imgPersonality) {
+        DOM.imgPersonality.src = result["img-personality"];
+        DOM.imgPersonality.srcset = "";
+      }
+
+      // Show preview image — ưu tiên image_url/preview_url, fallback img-personality
+      const previewSrc = result.image_url || result.preview_url || result["img-personality"] || "";
+      if (previewSrc && DOM.resultImage) {
+        // #result-image là Elementor widget DIV — phải update <img> bên trong
+        const imgEl = DOM.resultImageEl;
+        if (imgEl) {
+          imgEl.src = previewSrc;
+          imgEl.srcset = ""; // clear srcset để tránh browser dùng ảnh cũ từ srcset
+          imgEl.removeAttribute("srcset");
+          imgEl.removeAttribute("sizes");
+        }
+        DOM.resultImage.classList.add("visible");
+      }
+
+      // ── BACKWARD COMPAT (n8n cũ single-job) ──────────────────────────────────
+      // n8n cũ trả video_url trong image result (PHP đã ghép vào sibling transient).
+      // Preload video ngay lập tức, không cần đợi video poller riêng.
+      if (result.video_url && !state.videoUrl) {
+        preloadVideoInBackground(result.video_url);
+        if (DOM.videoStatusHint) {
+          DOM.videoStatusHint.textContent = "Hoàn tất! Nhấn nút để xem video.";
+        }
+      } else {
+        // Keep result-video section hidden until user clicks
+        if (DOM.resultVideo) DOM.resultVideo.classList.add("video-section-hidden");
+
+        if (DOM.btnGetVideo) {
+          DOM.btnGetVideo.disabled = true;
+          DOM.btnGetVideo.textContent = "VIDEO ĐANG TẠO...";
+        }
+        if (DOM.videoStatusHint) {
+          DOM.videoStatusHint.textContent = "Ảnh preview sẵn sàng! Video đang được tạo nền...";
+        }
+      }
+
+      // Stop loading pulse, transition to step-06
+      if (DOM.loadingImagePreview) DOM.loadingImagePreview.classList.remove("is-loading");
+      if (DOM.step5Loading) DOM.step5Loading.style.display = "none";
+      switchToStep("step-06");
+    }
+
+    // Called when VIDEO job finishes — preload in background, enable button
+    function preloadVideoInBackground(videoUrl) {
+      if (!videoUrl) return;
+      state.videoUrl = videoUrl;
+      state.currentVideoUrl = videoUrl;
+
+      // Keep video section hidden until user clicks btn-get-video
+      if (DOM.resultVideo) DOM.resultVideo.classList.add("video-section-hidden");
+
+      const videoEl = DOM.resultVideo?.querySelector("video.elementor-video");
+      if (videoEl) {
+        videoEl.classList.add("video-hidden");
+        videoEl.classList.remove("video-visible");
+        videoEl.pause();
+        videoEl.src = videoUrl;
+        videoEl.currentTime = 0;
+        videoEl.load();
+      }
+
+      // Enable the "Lấy Video" button once browser reports canplay or after 4s
+      const enableBtn = () => {
+        if (DOM.btnGetVideo) {
+          DOM.btnGetVideo.disabled = false;
+          DOM.btnGetVideo.textContent = "LẤY VIDEO ĐẦY ĐỦ";
+          DOM.btnGetVideo.classList.add("video-ready");
+        }
+        if (DOM.videoStatusHint) {
+          DOM.videoStatusHint.textContent = "Video đã sẵn sàng! Nhấn nút để xem.";
+        }
+      };
+
+      if (videoEl) {
+        videoEl.addEventListener("canplay", enableBtn, { once: true });
+        setTimeout(enableBtn, 4000); // fallback
+      } else {
+        setTimeout(enableBtn, 4000);
+      }
+    }
+
+    // Legacy fallback used when only a single video job is returned (backward-compat)
+    function showStep06(result) {
+      if (!result) return;
+      if (result["img-personality"] && DOM.imgPersonality) {
+        DOM.imgPersonality.src = result["img-personality"];
+        DOM.imgPersonality.srcset = "";
+      }
+      if (result.video_url) {
+        state.currentVideoUrl = result.video_url;
+        const videoEl = DOM.resultVideo?.querySelector("video.elementor-video");
+        if (videoEl) {
+          videoEl.classList.add("video-hidden");
+          videoEl.classList.remove("video-visible");
+          videoEl.pause();
+          videoEl.src = result.video_url;
+          videoEl.currentTime = 0;
+          videoEl.load();
+          const reveal = () => {
+            videoEl.classList.remove("video-hidden");
+            videoEl.classList.add("video-visible");
+          };
+          videoEl.addEventListener("canplay", reveal, { once: true });
+          setTimeout(reveal, 3000);
+        }
+      }
+      if (DOM.loadingImagePreview) DOM.loadingImagePreview.classList.remove("is-loading");
+      if (DOM.step5Loading) DOM.step5Loading.style.display = "none";
+      switchToStep("step-06");
+    }
+
+
+    /* ============================================================
+       10. MAIN UPLOAD FLOW (v2.0 — Dual-Job Parallel)
+           POST 1: /check  → sync (~5s)
+           POST 2: /swap   → trả image_job_id + video_job_id ngay (< 2s)
+           POLL A: /status?job=image_job_id  mỗi 3s  → showQuickImageResult
+           POLL B: /status?job=video_job_id  mỗi 5s  → preloadVideoInBackground
+    ============================================================ */
+    const PROXY_CHECK_URL  = "/wp-json/faceswap/v1/check";
+    const PROXY_SWAP_URL   = "/wp-json/faceswap/v1/swap";
+    const PROXY_STATUS_URL = "/wp-json/faceswap/v1/status";
+
+    const IMAGE_POLL_MS  = 3000;
+    const VIDEO_POLL_MS  = 5000;
+    const POLL_MAX_WAIT_MS = 900000; // 15 min
+
+    /* Generic poll — resolves when status === "done", rejects on error/timeout */
+    function pollJobResult(jobId, intervalMs) {
+      const startTime = Date.now();
+      return new Promise((resolve, reject) => {
+        async function tick() {
+          if (Date.now() - startTime > POLL_MAX_WAIT_MS) {
+            reject(new Error("Quá thời gian chờ (15 phút). Vui lòng thử lại."));
+            return;
+          }
+          try {
+            const res = await fetch(`${PROXY_STATUS_URL}?job=${encodeURIComponent(jobId)}`);
+            if (res.status === 404) { reject(new Error("Job không tồn tại hoặc đã hết hạn.")); return; }
+            if (!res.ok) { setTimeout(tick, intervalMs); return; }
+            const data = await res.json();
+            if (data.status === "done")  { resolve(data); return; }
+            if (data.status === "error") { reject(new Error(data.reason || "Xử lý thất bại.")); return; }
+            setTimeout(tick, intervalMs);
+          } catch { setTimeout(tick, intervalMs); }
+        }
+        tick();
+      });
+    }
+
+    if (DOM.uploadButton) {
+      DOM.uploadButton.addEventListener("click", async () => {
+        if (!state.selectedFile) return;
+
+        if (state.selectedFile.size > MAX_FILE_SIZE) {
+          alert("❌ File quá lớn! Vui lòng chọn file dưới 20MB.");
+          resetUploadForm();
+          return;
+        }
+
+        setButtonState(DOM.uploadButton, "loading", "Đang kiểm tra...");
+
+        const formData = new FormData();
+        formData.append("file", state.selectedFile);
+        formData.append("confirm", "1");
+
+        try {
+          /* ── Step 1: Check ảnh (sync) ── */
+          const nonce = await getFreshNonce();
+          const checkRes = await fetch(PROXY_CHECK_URL, {
+            method: "POST",
+            headers: { 'X-LH-Faceswap-Nonce': nonce },
+            body: cloneFormData(formData)
+          });
+          if (!checkRes.ok) throw new Error(`Check server error: ${checkRes.status}`);
+          let checkResult = await checkRes.json();
+          if (Array.isArray(checkResult)) checkResult = checkResult[0];
+
+          if (checkResult.success !== true) {
+            alert("❌ " + (checkResult.reason || "Ảnh không phù hợp!"));
+            resetUploadForm();
+            switchToStep("step-04");
+            return;
+          }
+
+          /* ── Step 2: Hiện loading, chuyển step-05 ── */
+          if (DOM.step5Loading) DOM.step5Loading.style.display = "block";
+          if (DOM.loadingImagePreview && DOM.imagePreview?.src) {
+            DOM.loadingImagePreview.src = DOM.imagePreview.src;
+            DOM.loadingImagePreview.classList.add("is-loading");
+          }
+          switchToStep("step-05");
+          setButtonState(DOM.uploadButton, "loading", "Đang xử lý...");
+
+          /* ── Step 3: Gửi swap — nhận image_job_id + video_job_id ngay ── */
+          const swapRes = await fetch(PROXY_SWAP_URL, {
+            method: "POST",
+            headers: { 'X-LH-Faceswap-Nonce': nonce },
+            body: formData
+          });
+          if (!swapRes.ok) throw new Error(`Swap server error: ${swapRes.status}`);
+          let swapInit = await swapRes.json();
+          if (Array.isArray(swapInit)) swapInit = swapInit[0];
+
+          // Dual-job mode (v2.0)
+          if (swapInit?.image_job_id && swapInit?.video_job_id) {
+            state.imageJobId = swapInit.image_job_id;
+            state.videoJobId = swapInit.video_job_id;
+
+            /* ── Step 4A: Poll image (priority) — khi xong chuyển step-06 ngay ── */
+            const imageResult = await pollJobResult(state.imageJobId, IMAGE_POLL_MS);
+            showQuickImageResult(imageResult);
+
+            /* ── Step 4B: Poll video (background, đã bắt đầu song song) ── */
+            pollJobResult(state.videoJobId, VIDEO_POLL_MS)
+              .then(videoResult => {
+                if (videoResult.success && videoResult.video_url) {
+                  preloadVideoInBackground(videoResult.video_url);
+                }
+              })
+              .catch(err => {
+                console.warn("[video poll] failed:", err.message);
+                if (DOM.videoStatusHint) DOM.videoStatusHint.textContent = "Video không khả dụng.";
+              });
+
+          // Legacy single-job fallback (backward-compat with old n8n)
+          } else if (swapInit?.job_id) {
+            const swapResult = await pollJobResult(swapInit.job_id, VIDEO_POLL_MS);
+            if (swapResult.success && swapResult.video_url) {
+              showStep06(swapResult);
+            } else {
+              throw new Error(swapResult.reason || "Face swap thất bại – không có video_url.");
+            }
+
+          } else {
+            throw new Error("Không nhận được job ID từ server.");
+          }
+
+        } catch (err) {
+          console.error("Upload error:", err);
+          alert("❌ Có lỗi xảy ra. Vui lòng thử lại!\n" + err.message);
+          resetUploadForm();
+          if (DOM.step5Loading) DOM.step5Loading.style.display = "none";
+          switchToStep("step-03", "back");
+
+        } finally {
+          setButtonState(DOM.uploadButton, "enabled", "TẢI ẢNH LÊN");
+          syncUploadButton();
+        }
+      });
+    }
+
+    /* ── Nút "Lấy Video": hiện video section + autoplay ── */
+    if (DOM.btnGetVideo) {
+      DOM.btnGetVideo.addEventListener("click", () => {
+        if (!state.videoUrl) return;
+
+        // Hiện video section
+        if (DOM.resultVideo) {
+          DOM.resultVideo.classList.remove("video-section-hidden");
+          const videoEl = DOM.resultVideo.querySelector("video.elementor-video");
+          if (videoEl) {
+            videoEl.classList.remove("video-hidden");
+            videoEl.classList.add("video-visible");
+            videoEl.play().catch(() => {});
+          }
+        }
+
+        // Ẩn nút + hint
+        DOM.btnGetVideo.style.display = "none";
+        if (DOM.videoStatusHint) DOM.videoStatusHint.style.display = "none";
+
+        // Scroll mượt đến video
+        DOM.resultVideo?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+
+
+    /* ============================================================
+       11. DOWNLOAD & SHARE (ĐÃ SỬA – CÓ QUOTE)
+    ============================================================ */
+    async function handleDownload() {
+      if (!state.currentVideoUrl) { alert("❌ Chưa có video để tải. Vui lòng thử lại!"); return; }
+
+      setButtonState(DOM.btnDownload, "loading");
+      try {
+        const res = await fetch(state.currentVideoUrl, { method: "GET", mode: "cors" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = Object.assign(document.createElement("a"), { href: blobUrl, download: "TADAAAA-video-cua-ban.mp4" });
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+      } catch (err) {
+        console.error("Download error:", err);
+        alert("❌ Không thể tải video.\nLỗi: " + err.message);
+      } finally {
+        setButtonState(DOM.btnDownload, "enabled");
+      }
+    }
+
+    function handleShare() {
+      const shareUrl = "https://biatuoi-halida.com/";
+      const quote = "Ae vô đây check var thử coi mình có tài năng tiềm ẩn gì trên bàn nhậu không, xong gửi kết quả cho tui. Đủ đội hình mình lập hội đi Tiệc Vui Muôn Vẻ luôn nha 😂";
+
+      // Thêm parameter quote để Facebook tự động điền nội dung (Lưu ý: FB có thể lờ đi nếu không dùng SDK)
+      const fbShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(quote)}`;
+
+      window.open(fbShareUrl, "_blank", "width=600,height=700,noopener,noreferrer");
+    }
+
+    if (DOM.btnDownload) DOM.btnDownload.addEventListener("click", handleDownload);
+    if (DOM.btnShare) DOM.btnShare.addEventListener("click", handleShare);
+
+
+    /* ============================================================
+       12. PHONE FORM SUBMISSION (reusable for both inline & popup)
+    ============================================================ */
+    const PHONE_WEBHOOK_URL = "/wp-json/faceswap/v1/phone";   // ← proxy
+    const VN_PHONE_REGEX = /^(0|84|\+84)[35789][0-9]{8}$/;
+
+    function setupPhoneSubmission(btnId, inputId, messageId) {
+      const btnSend = document.getElementById(btnId);
+      const phoneInput = document.getElementById(inputId);
+      const phoneMessage = document.getElementById(messageId);
+      if (!btnSend || !phoneInput || !phoneMessage) return;
+
+      function showMsg(msg, type = "error") {
+        phoneMessage.textContent = msg;
+        phoneMessage.style.color = type === "success" ? "#28a745" : "#d9534f";
+        if (type === "error") {
+          setTimeout(() => {
+            if (phoneMessage.textContent === msg) phoneMessage.textContent = "";
+          }, 6000);
+        }
+      }
+
+      btnSend.addEventListener("click", async e => {
+        e.preventDefault();
+        const raw = phoneInput.value.trim().replace(/\s+/g, "");
+        if (!raw) { showMsg("Vui lòng nhập số điện thoại!"); phoneInput.focus(); return; }
+        if (!VN_PHONE_REGEX.test(raw)) {
+          showMsg("Số điện thoại không hợp lệ! Vui lòng nhập đúng số di động.");
+          phoneInput.focus();
+          return;
+        }
+
+        const formatted = raw.replace(/^(\+?84)/, "0");
+        const origLabel = btnSend.innerHTML;
+        setButtonState(btnSend, "loading", `<span class="spinner-border spinner-border-sm" role="status"></span> Đang gửi...`);
+
+        const formData = new FormData();
+        formData.append("phone", formatted);
+        formData.append("source", btnId === "btn-send-2" ? "tadadaa_video_popup" : "tadadaa_video_form");
+        formData.append("confirm", "1");
+        if (state.currentVideoUrl) formData.append("video_url", state.currentVideoUrl);
+
+        try {
+          const nonce = await getFreshNonce();
+          const res = await fetch(PHONE_WEBHOOK_URL, {
+            method: "POST",
+            headers: {
+              'X-LH-Faceswap-Nonce': nonce
+            },
+            body: formData
+          });
+          let result = await res.json();
+          if (Array.isArray(result)) result = result[0];
+
+          if (result?.status === "success" || result?.success === true) {
+            showMsg("✅ Gửi thành công! Quà tặng sẽ được gửi qua Zalo trong vài phút.", "success");
+            phoneInput.disabled = true;
+            setButtonState(btnSend, "success", "THÀNH CÔNG");
+          } else if (result?.status === "error") {
+            showMsg(`❌ ${result.message || result.reason || "Gửi thất bại"}`);
+            setButtonState(btnSend, "enabled", origLabel);
+          } else {
+            throw new Error(result?.message || result?.reason || "Phản hồi không xác định");
+          }
+        } catch (err) {
+          console.error("Phone submit error:", err);
+          showMsg("❌ Có lỗi xảy ra khi gửi. Vui lòng thử lại sau!");
+          setButtonState(btnSend, "enabled", origLabel);
+        }
+      });
+    }
+
+    setupPhoneSubmission("btn-send", "phone-input", "phone-message");
+
+
+    /* ============================================================
+       13. AGE GATE & ZALO POPUP
+    ============================================================ */
+    if (DOM.btnOver18) {
+      DOM.btnOver18.addEventListener("click", () => document.body.classList.add("age-verified"));
+    }
+
+    if (typeof jQuery !== "undefined") {
+      jQuery(document).on("elementor/popup/hide", (event, id) => {
+        if (id === 1487) document.body.classList.add("age-verified");
+      });
+
+      jQuery(document).on("elementor/popup/show", (event, id) => {
+        if (id === 2302) {
+          // Small delay to let popup DOM fully render before querying its children
+          setTimeout(() => setupPhoneSubmission("btn-send-2", "phone-input-2", "phone-message-2"), 400);
+        }
+      });
+    }
+
+    if (DOM.btnCloseZaloPopup) {
+      DOM.btnCloseZaloPopup.addEventListener("click", () => {
+        if (typeof elementorFrontend !== "undefined") {
+          elementorFrontend.elements.$body.trigger("elementor/popup/hide", [2302]);
+        } else {
+          const popup = document.querySelector('[data-elementor-id="2302"]');
+          if (popup) popup.style.display = "none";
+        }
+      });
+    }
+
+  }); // end DOMContentLoaded
+</script>
