@@ -183,31 +183,34 @@ async def _acquire_worker(
     Retry scale_up mỗi 60 giây nếu vẫn không có worker.
     Timeout = BOOT_TIMEOUT_SEC.
 
-    output_type routing:
-      - "image" → ưu tiên pod worker_type=image → fallback pod "any"
-      - "video" → ưu tiên pod worker_type=video → fallback pod "any"
+    Key: kiểm tra TYPE-SPECIFIC active (idle+booting) chứ không check tổng.
+    Ví dụ: nếu image pod đang boot, video job vẫn scale_up video pod riêng.
     """
-    SCALE_UP_RETRY_INTERVAL = 60  # retry scale_up mỗi N giây
+    SCALE_UP_RETRY_INTERVAL = 60
+
+    async def _count_compatible_active() -> int:
+        """Số pod active (idle+booting) tương thích với output_type."""
+        active = await pool.count_active_by_type()
+        return active.get(output_type, 0) + active.get("any", 0)
 
     async def _try_scale_up(reason: str = ""):
+        compatible = await _count_compatible_active()
         counts = await pool.count_by_status()
-        if counts["idle"] + counts["booting"] == 0 and counts["total"] < settings.MAX_WORKERS:
+        if compatible == 0 and counts["total"] < settings.MAX_WORKERS:
             logger.info(f"[processor] scale_up({output_type}) triggered for {job_id} ({reason})")
             try:
                 await scale_up(worker_type=output_type)
             except Exception as e:
                 logger.warning(f"[processor] scale_up failed: {e}")
 
-    # Kiểm tra ngay lần đầu
-    counts = await pool.count_by_status()
-    if counts["idle"] + counts["booting"] == 0:
-        await _try_scale_up("no idle workers on arrival")
+    # Kiểm tra ngay lần đầu: nếu chưa có pod nào compatible → scale_up ngay
+    if await _count_compatible_active() == 0:
+        await _try_scale_up("no compatible workers on arrival")
 
     timeout = settings.BOOT_TIMEOUT_SEC
-    last_scale_up = 0  # seconds elapsed tại lần scale_up cuối
+    last_scale_up = 0
 
     for elapsed in range(timeout):
-        # Lọc theo output_type để đảm bảo model không bị reload
         worker = await pool.get_idle_worker(prefer_vip=prefer_vip, worker_type=output_type)
         if worker:
             logger.info(
@@ -216,12 +219,10 @@ async def _acquire_worker(
             )
             return worker
 
-        # Retry scale_up mỗi SCALE_UP_RETRY_INTERVAL giây
+        # Retry scale_up mỗi 60s nếu vẫn chưa có pod compatible nào
         if elapsed > 0 and elapsed - last_scale_up >= SCALE_UP_RETRY_INTERVAL:
-            counts = await pool.count_by_status()
-            # Chỉ retry nếu thực sự không có pod nào đang boot/running
-            if counts["idle"] + counts["booting"] == 0:
-                await _try_scale_up(f"retry at {elapsed}s, still no workers")
+            if await _count_compatible_active() == 0:
+                await _try_scale_up(f"retry at {elapsed}s, still no {output_type} workers")
                 last_scale_up = elapsed
 
         if elapsed % 30 == 0:

@@ -87,22 +87,14 @@ async def _tick():
                 await scale_up()
                 counts["total"] += 1
 
-    # ---- Smart scale-up theo type -----------------------------------------------
-    # Chỉ tạo pod mới khi CHƯA có pod idle OR booting cùng type.
-    # Mỗi lần _tick() chỉ tạo TỐI ĐA 1 pod image + 1 pod video.
-    # Pod mới boot xong → active_image/active_video tăng → tick tiếp không tạo thêm.
+    # NOTE: Type-specific scale_up (image/video) được xử lý bởi job_processor._acquire_worker
+    # Autoscaler KHÔNG gọi scale_up theo type để tránh tạo pod trùng với job_processor.
+    # Autoscaler chỉ log trạng thái pending để monitoring.
+    if image_pending > 0 and active_image == 0:
+        logger.warning(f"[autoscale] WARNING: {image_pending} image jobs pending but no active image pod — job_processor should handle scale_up")
+    if video_pending > 0 and active_video == 0:
+        logger.warning(f"[autoscale] WARNING: {video_pending} video jobs pending but no active video pod — job_processor should handle scale_up")
 
-    # Scale up cho image jobs đang pending mà chưa có pod image nào active
-    if image_pending > 0 and active_image == 0 and counts["total"] < settings.MAX_WORKERS:
-        logger.info(f"[autoscale] SCALE UP (image) — {image_pending} image jobs pending, active_image=0")
-        await scale_up(worker_type="image")
-        counts["total"] += 1
-
-    # Scale up cho video jobs đang pending mà chưa có pod video nào active
-    if video_pending > 0 and active_video == 0 and counts["total"] < settings.MAX_WORKERS:
-        logger.info(f"[autoscale] SCALE UP (video) — {video_pending} video jobs pending, active_video=0")
-        await scale_up(worker_type="video")
-        counts["total"] += 1
 
     # Fallback: nếu có job trong queue mà không có pod nào sẵn → resume stopped hoặc scale up "any"
     available_total = counts["idle"] + counts["booting"]
