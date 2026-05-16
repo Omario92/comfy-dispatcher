@@ -25,6 +25,7 @@ from comfy_client import (
 from config import settings
 from job_store import jobs
 from r2_uploader import download_and_upload_r2
+from redis_client import get_redis
 from worker_pool import pool
 
 
@@ -43,10 +44,13 @@ async def process_job(job_id: str) -> None:
     pod_id = ""
     prompt_id = ""
 
+    # Tăng pending counter theo type (autoscaler dùng để quyết định scale_up)
+    await _inc_pending(output_type)
+
     try:
         # ── Step 1: Lấy worker idle (hoặc scale up) ──────────────────
         await jobs.set_status(job_id, "starting_pod")
-        worker = await _acquire_worker(job_id, prefer_vip=(priority == "high"))
+        worker = await _acquire_worker(job_id, output_type=output_type, prefer_vip=(priority == "high"))
         pod_id = worker["pod_id"]
 
         # MARK BUSY NGAY LẬP TỨC để tránh bị Autoscaler kill trong khi đợi boot
@@ -133,6 +137,8 @@ async def process_job(job_id: str) -> None:
         await _callback_n8n(job_id, "failed", None, err_msg, pod_id, prompt_id)
 
     finally:
+        # Giảm pending counter (job đã được xử lý hoặc lỗi)
+        await _dec_pending(output_type)
         # Luôn trả pod về idle khi xong, kể cả khi lỗi
         if pod_id:
             try:
@@ -144,20 +150,51 @@ async def process_job(job_id: str) -> None:
 
 # ─────────────────────────── Helpers ───────────────────────────
 
-async def _acquire_worker(job_id: str, prefer_vip: bool = False) -> dict:
+async def _inc_pending(output_type: str):
+    """Tăng Redis pending counter theo output_type (image hoặc video)."""
+    try:
+        r = await get_redis()
+        key = settings.IMAGE_PENDING_KEY if output_type == "image" else settings.VIDEO_PENDING_KEY
+        await r.incr(key)
+        await r.expire(key, 3600)  # TTL an toàn 1 giờ
+    except Exception as e:
+        logger.warning(f"[processor] _inc_pending failed: {e}")
+
+
+async def _dec_pending(output_type: str):
+    """Giảm Redis pending counter theo output_type (floor = 0)."""
+    try:
+        r = await get_redis()
+        key = settings.IMAGE_PENDING_KEY if output_type == "image" else settings.VIDEO_PENDING_KEY
+        val = int(await r.get(key) or 0)
+        if val > 0:
+            await r.decr(key)
+    except Exception as e:
+        logger.warning(f"[processor] _dec_pending failed: {e}")
+
+
+async def _acquire_worker(
+    job_id: str,
+    output_type: str = "video",
+    prefer_vip: bool = False,
+) -> dict:
     """
-    Đợi idle worker. Nếu chưa có, trigger scale_up.
+    Đợi idle worker phù hợp với output_type. Nếu chưa có, trigger scale_up đúng type.
     Retry scale_up mỗi 60 giây nếu vẫn không có worker.
     Timeout = BOOT_TIMEOUT_SEC.
+
+    output_type routing:
+      - "image" → ưu tiên pod worker_type=image → fallback pod "any"
+      - "video" → ưu tiên pod worker_type=video → fallback pod "any"
     """
     SCALE_UP_RETRY_INTERVAL = 60  # retry scale_up mỗi N giây
 
     async def _try_scale_up(reason: str = ""):
         counts = await pool.count_by_status()
         if counts["idle"] + counts["booting"] == 0 and counts["total"] < settings.MAX_WORKERS:
-            logger.info(f"[processor] scale_up triggered for {job_id} ({reason})")
+            logger.info(f"[processor] scale_up({output_type}) triggered for {job_id} ({reason})")
             try:
-                await scale_up()
+                await scale_up(worker_type=output_type)
             except Exception as e:
                 logger.warning(f"[processor] scale_up failed: {e}")
 
@@ -170,8 +207,13 @@ async def _acquire_worker(job_id: str, prefer_vip: bool = False) -> dict:
     last_scale_up = 0  # seconds elapsed tại lần scale_up cuối
 
     for elapsed in range(timeout):
-        worker = await pool.get_idle_worker(prefer_vip=prefer_vip)
+        # Lọc theo output_type để đảm bảo model không bị reload
+        worker = await pool.get_idle_worker(prefer_vip=prefer_vip, worker_type=output_type)
         if worker:
+            logger.info(
+                f"[processor] acquired worker={worker['pod_id']} "
+                f"(worker_type={worker.get('worker_type','any')}) for job={job_id} (output_type={output_type})"
+            )
             return worker
 
         # Retry scale_up mỗi SCALE_UP_RETRY_INTERVAL giây
@@ -185,7 +227,7 @@ async def _acquire_worker(job_id: str, prefer_vip: bool = False) -> dict:
         if elapsed % 30 == 0:
             counts = await pool.count_by_status()
             logger.info(
-                f"[processor] waiting for idle worker "
+                f"[processor] waiting for idle {output_type} worker "
                 f"({elapsed}/{timeout}s) for job={job_id} | "
                 f"total={counts['total']} idle={counts['idle']} "
                 f"booting={counts['booting']} stopped={counts['stopped']}"
@@ -193,7 +235,7 @@ async def _acquire_worker(job_id: str, prefer_vip: bool = False) -> dict:
         await asyncio.sleep(1)
 
     raise TimeoutError(
-        f"No idle worker available after {timeout}s for job={job_id}"
+        f"No idle {output_type} worker available after {timeout}s for job={job_id}"
     )
 
 

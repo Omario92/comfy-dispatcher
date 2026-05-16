@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     JOB_STATUS_PREFIX: str = "jobs:status:"
     PROMPT_MAP_KEY: str = "prompt:pod_map"
     JOB_TTL_SEC: int = 86400  # 1 day
+    # Pending counters per worker type (dùng cho autoscaler smart scale-up)
+    IMAGE_PENDING_KEY: str = "queue:image_pending"
+    VIDEO_PENDING_KEY: str = "queue:video_pending"
 
     # ===== RunPod =====
     RUNPOD_API_KEY: str

@@ -53,10 +53,19 @@ async def _tick():
     queue_depth = await r.llen(settings.QUEUE_KEY)
     counts = await pool.count_by_status()
 
+    # Đọc pending counter theo type (tăng/giảm bởi job_processor)
+    image_pending = int(await r.get(settings.IMAGE_PENDING_KEY) or 0)
+    video_pending = int(await r.get(settings.VIDEO_PENDING_KEY) or 0)
+
     is_peak, idle_timeout, min_workers = peak_hours_status()
 
+    # Đếm idle pod theo type để biết đang thiếu loại nào
+    idle_by_type = await pool.count_idle_by_type()
+    idle_image = idle_by_type.get("image", 0) + idle_by_type.get("any", 0)
+    idle_video = idle_by_type.get("video", 0) + idle_by_type.get("any", 0)
+
     logger.info(
-        f"[autoscale] queue={queue_depth} "
+        f"[autoscale] queue={queue_depth} (img_pending={image_pending} vid_pending={video_pending}) "
         f"total={counts['total']} idle={counts['idle']} "
         f"busy={counts['busy']} booting={counts['booting']} "
         f"stopped={counts['stopped']} | "
@@ -75,9 +84,25 @@ async def _tick():
                 await scale_up()
                 counts["total"] += 1
 
-    # ---- Có job chờ: ưu tiên resume pod stopped trước khi tạo mới ----
-    available = counts["idle"] + counts["booting"]
-    if queue_depth > 0 and available == 0:
+    # ---- Smart scale-up theo type -----------------------------------------------
+    # Image pod: respond nhanh → ít pod hơn, chỉ scale khi thật sự cần
+    # Video pod: render lâu → cần pod sẵn sàng nhiều hơn
+    available_total = counts["idle"] + counts["booting"]
+
+    # Scale up cho image jobs đang pending mà không có pod idle image
+    if image_pending > 0 and idle_image == 0 and counts["total"] < settings.MAX_WORKERS:
+        logger.info(f"[autoscale] SCALE UP (image) — {image_pending} image jobs pending, no idle image pod")
+        await scale_up(worker_type="image")
+        counts["total"] += 1
+
+    # Scale up cho video jobs đang pending mà không có pod idle video
+    if video_pending > 0 and idle_video == 0 and counts["total"] < settings.MAX_WORKERS:
+        logger.info(f"[autoscale] SCALE UP (video) — {video_pending} video jobs pending, no idle video pod")
+        await scale_up(worker_type="video")
+        counts["total"] += 1
+
+    # Fallback: nếu có job trong queue mà không có pod nào sẵn → scale up "any"
+    if queue_depth > 0 and available_total == 0:
         stopped = await pool.get_stopped_workers()
         if stopped:
             # Resume pod stopped đầu tiên (nhanh hơn tạo mới)
@@ -86,7 +111,8 @@ async def _tick():
             try:
                 ok = await runpod.resume_pod(pod_to_resume["pod_id"])
                 if ok:
-                    await pool.mark_booting(pod_to_resume["pod_id"])
+                    await pool.mark_booting(pod_to_resume["pod_id"],
+                                            worker_type=pod_to_resume.get("worker_type", "any"))
             except Exception as e:
                 logger.error(f"[autoscale] resume failed: {e}")
         elif counts["total"] < settings.MAX_WORKERS:
@@ -96,18 +122,33 @@ async def _tick():
     await _scale_down_two_phase(counts, min_workers)
 
 
-async def scale_up():
-    name = f"comfy-worker-{uuid.uuid4().hex[:8]}"
-    logger.info(f"[autoscale] SCALE UP → creating {name}")
+async def scale_up(worker_type: str = "any") -> dict | None:
+    """
+    Tạo pod mới trên RunPod.
+
+    worker_type:
+      - "image" → pod đặt tên prefix "image-worker-"
+      - "video" → pod đặt tên prefix "video-worker-"
+      - "any"   → pod đặt tên prefix "comfy-worker-" (backward-compat)
+    """
+    prefix_map = {
+        "image": "image-worker",
+        "video": "video-worker",
+        "any":   "comfy-worker",
+    }
+    prefix = prefix_map.get(worker_type, "comfy-worker")
+    name = f"{prefix}-{uuid.uuid4().hex[:8]}"
+
+    logger.info(f"[autoscale] SCALE UP → creating {name} (worker_type={worker_type})")
     try:
         pod = await runpod.create_pod(name)
         pod_id = pod["id"]
-        logger.info(f"[autoscale] created pod {pod_id} (status={pod.get('desiredStatus')})")
-        # Ghi ngay vào registry với status=booting để autoscaler không tạo thêm pod trùng
-        await pool.mark_booting(pod_id)
+        logger.info(f"[autoscale] created pod {pod_id} name={name} (status={pod.get('desiredStatus')})")
+        # Ghi ngay vào registry với status=booting + worker_type
+        await pool.mark_booting(pod_id, worker_type=worker_type)
         return pod
     except Exception as e:
-        logger.error(f"[autoscale] scale up FAILED: {e}")
+        logger.error(f"[autoscale] scale up FAILED ({worker_type}): {e}")
         return None
 
 

@@ -158,6 +158,7 @@ class RegisterPodReq(BaseModel):
     ip: str = ""          # Public IP nếu dùng SECURE cloud (thay vì proxy)
     port: int = 8188      # Port ComfyUI (mặc định 8188)
     pin_hours: float = 0  # > 0 để ghim pod, autoscaler sẽ bỏ qua nó
+    worker_type: str = "any"  # "image" | "video" | "any" — routing model-affinity
 
 
 @app.post("/admin/register-pod")
@@ -193,10 +194,10 @@ async def admin_register_pod(req: RegisterPodReq):
 
     if req.proxy_url:
         # Community Cloud: dùng RunPod Proxy URL
-        await pool.register_proxy(req.pod_id, req.proxy_url)
+        await pool.register_proxy(req.pod_id, req.proxy_url, worker_type=req.worker_type)
     else:
         # Secure Cloud: dùng IP trực tiếp
-        await pool.register(req.pod_id, req.ip, req.port)
+        await pool.register(req.pod_id, req.ip, req.port, worker_type=req.worker_type)
 
     # Ghim pod nếu admin muốn
     pin_msg = None
@@ -209,6 +210,7 @@ async def admin_register_pod(req: RegisterPodReq):
     logger.info(
         f"[admin] manually {action} pod {req.pod_id} "
         f"proxy={req.proxy_url or '-'} ip={req.ip or '-'} "
+        f"worker_type={req.worker_type} "
         f"pinned_until={pin_msg or 'no pin'}"
     )
 
@@ -219,6 +221,7 @@ async def admin_register_pod(req: RegisterPodReq):
         "proxy_url": req.proxy_url or None,
         "ip": req.ip or None,
         "port": req.port,
+        "worker_type": req.worker_type,
         "pinned_until": pin_msg,
         "note": "Pod đã được đăng ký vào Redis. Dispatcher sẽ dispatch job vào Pod này ngay khi có job mới."
     }
@@ -264,6 +267,7 @@ class WarmupReq(BaseModel):
     count: int = 3
     duration_hours: float = 4.0
     cloud_type: str = "SECURE"
+    worker_type: str = "any"   # "image" | "video" | "any" — gán type cho các pod VIP được tạo
     # Chỉ GPU cao cấp — không tự fallback xuống card rẻ hơn
     gpu_types: list[str] = [
         "NVIDIA RTX PRO 6000 Blackwell Server Edition",
@@ -340,9 +344,9 @@ async def warmup_vip(req: WarmupReq):
             try:
                 pod = await runpod.create_pod(f"comfy-vip-{uuid.uuid4().hex[:8]}")
                 pod_id = pod["id"]
-                await pool.mark_booting(pod_id)
+                await pool.mark_booting(pod_id, worker_type=req.worker_type)
                 await pool._update(pod_id, pinned_until=pinned_until)
-                logger.info(f"[warmup] 🔒 pinned VIP pod {pod_id} until {expires_at}")
+                logger.info(f"[warmup] 🔒 pinned VIP pod {pod_id} until {expires_at} (worker_type={req.worker_type})")
                 created.append(pod_id)
                 success = True
                 break
@@ -368,6 +372,7 @@ async def warmup_vip(req: WarmupReq):
         "created": len(created),
         "failed": len(failed),
         "pod_ids": created,
+        "worker_type": req.worker_type,
         "pinned_until": expires_at,
         "duration_hours": req.duration_hours,
         "errors": failed,
@@ -698,8 +703,9 @@ async def workers():
 
 
 @app.post("/admin/scale-up")
-async def admin_scale_up():
-    """Manual scale up (debug)."""
+async def admin_scale_up(body: dict = {}):
+    """Manual scale up (debug). Truyền worker_type để tạo đúng loại pod."""
     from autoscaler import scale_up
-    result = await scale_up()
-    return {"created": result}
+    worker_type = body.get("worker_type", "any") if body else "any"
+    result = await scale_up(worker_type=worker_type)
+    return {"created": result, "worker_type": worker_type}

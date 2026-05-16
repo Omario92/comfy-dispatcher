@@ -839,7 +839,15 @@
       const downloadUrl = isImageMode
         ? (state.imageResult?.image_url || state.imageResult?.preview_url || "")
         : state.currentVideoUrl;
-      const filename = isImageMode ? "TADAAAA-anh-cua-ban.jpg" : "TADAAAA-video-cua-ban.mp4";
+      
+      let ext = isImageMode ? "jpg" : "mp4";
+      if (downloadUrl) {
+        const match = downloadUrl.match(/\.([a-zA-Z0-9]+)(?:[\?#]|$)/);
+        if (match) {
+          ext = match[1].toLowerCase();
+        }
+      }
+      const filename = isImageMode ? `TADAAAA-anh-cua-ban.${ext}` : `TADAAAA-video-cua-ban.${ext}`;
 
       if (!downloadUrl) {
         alert(isImageMode ? "❌ Chưa có ảnh để tải. Vui lòng thử lại!" : "❌ Chưa có video để tải. Vui lòng thử lại!");

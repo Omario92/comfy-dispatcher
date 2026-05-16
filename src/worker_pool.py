@@ -9,12 +9,16 @@ class WorkerPool:
     """
     Worker registry trong Redis HASH (workers:registry):
       field = pod_id
-      value = JSON { pod_id, status, ip, port, last_active, current_job }
+      value = JSON { pod_id, status, ip, port, last_active, current_job, worker_type }
 
     status: booting | idle | busy | dead
+    worker_type: "image" | "video" | "any"
+      - "image"  → chỉ nhận job output_type=image
+      - "video"  → chỉ nhận job output_type=video
+      - "any"    → nhận mọi loại job (backward-compatible, default)
     """
 
-    async def mark_booting(self, pod_id: str):
+    async def mark_booting(self, pod_id: str, worker_type: str = "any"):
         """Ghi pod mới vào registry ngay lập tức với status=booting."""
         r = await get_redis()
         data = {
@@ -25,11 +29,12 @@ class WorkerPool:
             "proxy_url": "",
             "last_active": int(time.time()),
             "current_job": None,
+            "worker_type": worker_type,
         }
         await r.hset(settings.WORKERS_KEY, pod_id, json.dumps(data))
-        logger.info(f"[pool] marked {pod_id} as booting")
+        logger.info(f"[pool] marked {pod_id} as booting (worker_type={worker_type})")
 
-    async def register_proxy(self, pod_id: str, proxy_url: str):
+    async def register_proxy(self, pod_id: str, proxy_url: str, worker_type: str = "any"):
         """Auto-register pod đang booting bằng RunPod proxy URL."""
         r = await get_redis()
         raw = await r.hget(settings.WORKERS_KEY, pod_id)
@@ -37,10 +42,13 @@ class WorkerPool:
         data["status"] = "idle"
         data["proxy_url"] = proxy_url
         data["last_active"] = int(time.time())
+        # Giữ worker_type nếu đã có từ mark_booting; override nếu truyền rõ ràng
+        if worker_type != "any" or "worker_type" not in data:
+            data["worker_type"] = worker_type
         await r.hset(settings.WORKERS_KEY, pod_id, json.dumps(data))
-        logger.info(f"[pool] auto-registered {pod_id} via proxy {proxy_url}")
+        logger.info(f"[pool] auto-registered {pod_id} via proxy {proxy_url} (worker_type={data['worker_type']})")
 
-    async def register(self, pod_id: str, ip: str, port: int):
+    async def register(self, pod_id: str, ip: str, port: int, worker_type: str = "any"):
         r = await get_redis()
         data = {
             "pod_id": pod_id,
@@ -49,9 +57,10 @@ class WorkerPool:
             "port": port,
             "last_active": int(time.time()),
             "current_job": None,
+            "worker_type": worker_type,
         }
         await r.hset(settings.WORKERS_KEY, pod_id, json.dumps(data))
-        logger.info(f"[pool] registered worker {pod_id} at {ip}:{port}")
+        logger.info(f"[pool] registered worker {pod_id} at {ip}:{port} (worker_type={worker_type})")
 
     async def list_workers(self) -> list[dict]:
         r = await get_redis()
@@ -63,9 +72,18 @@ class WorkerPool:
         raw = await r.hget(settings.WORKERS_KEY, pod_id)
         return json.loads(raw) if raw else None
 
-    async def get_idle_worker(self, prefer_vip: bool = False) -> dict | None:
+    async def get_idle_worker(
+        self,
+        prefer_vip: bool = False,
+        worker_type: str = "any",
+    ) -> dict | None:
         """
-        Trả về idle worker để nhận job.
+        Trả về idle worker phù hợp với loại job.
+
+        worker_type routing:
+          - "image" / "video": ưu tiên pod cùng type → fallback pod "any"
+          - "any": chọn bất kỳ pod idle (backward-compatible)
+
         prefer_vip=True (high-priority jobs): VIP pods trước → thường sau.
         prefer_vip=False (normal jobs): thường trước → VIP chỉ dùng khi không còn pod nào khác.
         """
@@ -73,8 +91,18 @@ class WorkerPool:
         workers = await self.list_workers()
         idle = [w for w in workers if w["status"] == "idle"]
 
-        vip    = [w for w in idle if w.get("pinned_until", 0) > now]
-        normal = [w for w in idle if w.get("pinned_until", 0) <= now]
+        # ── Lọc theo worker_type ──────────────────────────────────────
+        if worker_type != "any":
+            # Pod khớp đúng type hoặc pod "any" (backward-compat)
+            typed   = [w for w in idle if w.get("worker_type", "any") == worker_type]
+            generic = [w for w in idle if w.get("worker_type", "any") == "any"]
+            # Ghép: đúng type trước, "any" pod là fallback
+            candidates = typed + generic
+        else:
+            candidates = idle
+
+        vip    = [w for w in candidates if w.get("pinned_until", 0) > now]
+        normal = [w for w in candidates if w.get("pinned_until", 0) <= now]
 
         if prefer_vip:
             # High-priority: VIP first, then normal
@@ -82,6 +110,16 @@ class WorkerPool:
         else:
             # Normal: avoid spending VIP pods, prefer normal workers
             return (normal or vip or [None])[0]
+
+    async def count_idle_by_type(self) -> dict:
+        """Đếm số pod idle theo worker_type. Dùng cho autoscaler smart scale-up."""
+        workers = await self.list_workers()
+        result = {"image": 0, "video": 0, "any": 0}
+        for w in workers:
+            if w.get("status") == "idle":
+                wt = w.get("worker_type", "any")
+                result[wt] = result.get(wt, 0) + 1
+        return result
 
     async def mark_busy(self, pod_id: str, job_id: str):
         await self._update(pod_id, status="busy", current_job=job_id,
