@@ -148,6 +148,7 @@
       videoUrl: null,
       currentVideoUrl: "",
       transitioning: false,
+      downloadMode: "image",   // "image" | "video" — quyết định btn-download tải gì
     };
 
     async function getFreshNonce() {
@@ -450,6 +451,7 @@
       state.videoJobId = null;
       state.imageResult = null;
       state.videoUrl = null;
+      state.downloadMode = "image";   // reset về image mode
       // Reset btn-get-video for next session
       if (DOM.btnGetVideo) {
         DOM.btnGetVideo.disabled = true;
@@ -574,6 +576,14 @@
       // Stop loading pulse, transition to step-06
       if (DOM.loadingImagePreview) DOM.loadingImagePreview.classList.remove("is-loading");
       if (DOM.step5Loading) DOM.step5Loading.style.display = "none";
+
+      // Đặt btn-download = "TẢI ẢNH" ngay khi bước vào step-06
+      state.downloadMode = "image";
+      if (DOM.btnDownload) {
+        DOM.btnDownload.textContent = "TẢI ẢNH";
+        DOM.btnDownload.disabled = false;
+      }
+
       switchToStep("step-06");
     }
 
@@ -795,6 +805,10 @@
         // Ẩn ảnh preview để video không bị che khuất (cả 2 đều absolute)
         if (DOM.resultImage) DOM.resultImage.classList.remove("visible");
 
+        // Chuyển btn-download sang chế độ video
+        state.downloadMode = "video";
+        if (DOM.btnDownload) DOM.btnDownload.textContent = "TẢI VIDEO";
+
         // Hiện video section
         if (DOM.resultVideo) {
           DOM.resultVideo.classList.remove("video-section-hidden");
@@ -821,24 +835,33 @@
        11. DOWNLOAD & SHARE (ĐÃ SỬA – CÓ QUOTE)
     ============================================================ */
     async function handleDownload() {
-      if (!state.currentVideoUrl) { alert("❌ Chưa có video để tải. Vui lòng thử lại!"); return; }
+      const isImageMode = state.downloadMode === "image";
+      const downloadUrl = isImageMode
+        ? (state.imageResult?.image_url || state.imageResult?.preview_url || "")
+        : state.currentVideoUrl;
+      const filename = isImageMode ? "HALIDA-anh-cua-ban.jpg" : "HALIDA-video-cua-ban.mp4";
+
+      if (!downloadUrl) {
+        alert(isImageMode ? "❌ Chưa có ảnh để tải. Vui lòng thử lại!" : "❌ Chưa có video để tải. Vui lòng thử lại!");
+        return;
+      }
 
       setButtonState(DOM.btnDownload, "loading");
       try {
-        const res = await fetch(state.currentVideoUrl, { method: "GET", mode: "cors" });
+        const res = await fetch(downloadUrl, { method: "GET", mode: "cors" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const blob = await res.blob();
         const blobUrl = URL.createObjectURL(blob);
-        const a = Object.assign(document.createElement("a"), { href: blobUrl, download: "TADAAAA-video-cua-ban.mp4" });
+        const a = Object.assign(document.createElement("a"), { href: blobUrl, download: filename });
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(blobUrl);
       } catch (err) {
         console.error("Download error:", err);
-        alert("❌ Không thể tải video.\nLỗi: " + err.message);
+        alert("❌ Không thể tải.\nLỗi: " + err.message);
       } finally {
-        setButtonState(DOM.btnDownload, "enabled");
+        setButtonState(DOM.btnDownload, "enabled", isImageMode ? "TẢI ẢNH" : "TẢI VIDEO");
       }
     }
 
