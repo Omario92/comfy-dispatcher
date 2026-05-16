@@ -39,12 +39,12 @@ define('POLL_TIMEOUT',     30);               // PHP chờ n8n tối đa 30s/pol
 // Map personality number → img-personality URL (dùng khi fallback từ Dispatcher trực tiếp)
 // n8n thường tự map và gửi URL, nhưng khi bypass n8n cần map thủ công
 define('PERSONALITY_IMG_MAP', [
-    0 => 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/04/HLD-BTNG.webp',
-    1 => 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/04/HLD-BTNG.webp',
-    2 => 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/04/HLD-BTNG.webp',
-    3 => 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/04/HLD-BTNG.webp',
+    0 => 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/04/HLD-vua-tuu-luong.webp',
+    1 => 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/04/HLD-DSDM.webp',
+    2 => 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/04/HLD-DCBN.webp',
+    3 => 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/04/HLD-BDN.webp',
     4 => 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/04/HLD-BTNG.webp',
-    5 => 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/04/HLD-BTNG.webp',
+    5 => 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/04/HLD-LPBN.webp',
 ]);
 
 
