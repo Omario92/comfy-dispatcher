@@ -367,6 +367,7 @@
 
           canvas.toBlob(
             (blob) => {
+              clearTimeout(blobTimeout);
               if (!blob) { resolve(file); return; }
               const originalName = file.name.replace(/\.[^/.]+$/, "");
               resolve(new File([blob], `${originalName}.jpg`, {
@@ -377,6 +378,11 @@
             "image/jpeg",
             JPEG_QUALITY
           );
+          // Fallback: nếu canvas.toBlob() không có callback trong 8s (thiếu RAM trên mobile cũ)
+          const blobTimeout = setTimeout(() => {
+            console.warn("[Resize] canvas.toBlob() timeout, fallback to original file");
+            resolve(file);
+          }, 8000);
         };
 
         img.onerror = () => {
@@ -402,7 +408,9 @@
       }
 
       // === 2. KIỂM TRA ĐỊNH DẠNG ===
-      if (!file.type.startsWith("image/")) {
+      // iOS Safari đôi khi gửi file.type = "" với HEIC/HEIF → không reject, cho resize thử
+      const fileType = file.type || "image/jpeg";
+      if (!fileType.startsWith("image/") && !fileType.startsWith("application/octet-stream")) {
         alert("Vui lòng chọn file hình ảnh!");
         if (DOM.fileInput) DOM.fileInput.value = "";
         return;
@@ -714,11 +722,21 @@
         try {
           /* ── Step 1: Check ảnh (sync) ── */
           const nonce = await getFreshNonce();
-          const checkRes = await fetch(PROXY_CHECK_URL, {
-            method: "POST",
-            headers: { 'X-LH-Faceswap-Nonce': nonce },
-            body: cloneFormData(formData)
-          });
+
+          // AbortController — timeout 70s để tránh fetch đứng vĩnh viễn trên mobile 4G yếu
+          const checkAbort = new AbortController();
+          const checkTimer = setTimeout(() => checkAbort.abort(), 70000);
+          let checkRes;
+          try {
+            checkRes = await fetch(PROXY_CHECK_URL, {
+              method: "POST",
+              headers: { 'X-LH-Faceswap-Nonce': nonce },
+              body: cloneFormData(formData),
+              signal: checkAbort.signal,
+            });
+          } finally {
+            clearTimeout(checkTimer);
+          }
           if (!checkRes.ok) throw new Error(`Check server error: ${checkRes.status}`);
           let checkResult = await checkRes.json();
           if (Array.isArray(checkResult)) checkResult = checkResult[0];
@@ -740,11 +758,20 @@
           setButtonState(DOM.uploadButton, "loading", "Đang xử lý...");
 
           /* ── Step 3: Gửi swap — nhận image_job_id + video_job_id ngay ── */
-          const swapRes = await fetch(PROXY_SWAP_URL, {
-            method: "POST",
-            headers: { 'X-LH-Faceswap-Nonce': nonce },
-            body: formData
-          });
+          // Swap chỉ cần ACK từ n8n (~5s), timeout 30s là đủ
+          const swapAbort = new AbortController();
+          const swapTimer = setTimeout(() => swapAbort.abort(), 30000);
+          let swapRes;
+          try {
+            swapRes = await fetch(PROXY_SWAP_URL, {
+              method: "POST",
+              headers: { 'X-LH-Faceswap-Nonce': nonce },
+              body: formData,
+              signal: swapAbort.signal,
+            });
+          } finally {
+            clearTimeout(swapTimer);
+          }
           if (!swapRes.ok) throw new Error(`Swap server error: ${swapRes.status}`);
           let swapInit = await swapRes.json();
           if (Array.isArray(swapInit)) swapInit = swapInit[0];

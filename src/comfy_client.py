@@ -11,6 +11,7 @@ RunPod proxy format: https://{pod_id}-8188.proxy.runpod.net
 Cloudflare 100s timeout → WS persistent tránh được giới hạn này.
 """
 import asyncio
+import json
 import time
 from typing import Dict, Optional
 from urllib.parse import urlencode
@@ -127,8 +128,13 @@ class AsyncComfyWebSocketClient:
         """
         try:
             async for raw_message in self._ws:
+                # ComfyUI can send binary live-preview frames over the same socket.
+                # They are not JSON events and should not wake/resolve listeners.
+                if isinstance(raw_message, (bytes, bytearray)):
+                    logger.debug("[comfy-ws] skipped binary preview frame")
+                    continue
+
                 try:
-                    import json
                     data: dict = json.loads(raw_message)
                     msg_type: str = data.get("type", "")
                     msg_data: dict = data.get("data", {})

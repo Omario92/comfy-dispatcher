@@ -40,6 +40,11 @@
   - **src/main.py**: `RegisterPodReq` thêm `worker_type`. `/admin/register-pod`, `/admin/warmup`, `/admin/scale-up` đều nhận và truyền `worker_type`.
   - **src/config.py**: Thêm `IMAGE_PENDING_KEY` và `VIDEO_PENDING_KEY` (Redis counter keys).
   - **Backward-compat**: Pod cũ không có `worker_type` được treat là `"any"` → nhận mọi loại job.
+- [2026-05-16] Autoscaler & Job Routing Fixes:
+  - **Bugfix (4 pods per job)**: Loại bỏ duplicate `scale_up` gọi từ cả `autoscaler.py` và `job_processor.py`. Sửa logic `_acquire_worker` kiểm tra active pod theo đúng `worker_type` thay vì kiểm tra tổng, giúp video jobs không bị block khi image pods đang boot.
+  - **PHP Personality Map**: Thêm `PERSONALITY_IMG_MAP` vào `lh-faceswap-proxy.php` để map số personality (0-5) từ Dispatcher sang URL ảnh thật khi dùng fallback `dispatcher_direct` (bypass n8n).
+  - **Mobile Upload Resilience**: Fix lỗi đứng/treo khi upload trên mobile bằng cách (1) Hỗ trợ file type HEIC rỗng trên iOS Safari; (2) Thêm timeout 8s cho `canvas.toBlob()` tránh treo RAM; (3) Thêm `AbortController` timeout (70s/30s) cho các fetch request tránh treo do mạng yếu.
+  - **UI Optimization**: Chuẩn hóa breakpoints (Tablet: 1024px, Mobile: 767px) trên toàn bộ frontend; Tăng kích thước kính lúp trên mobile thêm 30%; Vô hiệu hóa site footer của theme bằng CSS.
 
 
 
