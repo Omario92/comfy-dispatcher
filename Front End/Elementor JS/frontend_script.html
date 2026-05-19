@@ -1,6 +1,15 @@
 <script>
   document.addEventListener("DOMContentLoaded", () => {
 
+    /* ================== LOAD FACEBOOK SDK ================== */
+    (function (d, s, id) {
+      var js, fjs = d.getElementsByTagName(s)[0];
+      if (d.getElementById(id)) return;
+      js = d.createElement(s); js.id = id;
+      js.src = "https://connect.facebook.net/vi_VN/sdk.js#xfbml=1&version=v19.0&appId=991207586610170&autoLogAppEvents=1";
+      fjs.parentNode.insertBefore(js, fjs);
+    }(document, 'script', 'facebook-jssdk'));
+
     /* ============================================================
        0. INJECT TRANSITION STYLES
        All step animation CSS lives here — no external stylesheet needed.
@@ -55,6 +64,7 @@
     /* Result image preview (quick image before video) */
     /* #result-image là Elementor widget DIV — ẩn bằng opacity thay vì display:none
        để tránh xung đột với Elementor absolute positioning */
+    /* #result-image là Elementor widget DIV — ẩn bằng opacity thay vì display:none */
     #result-image {
       opacity: 0;
       transition: opacity 0.4s ease;
@@ -63,6 +73,48 @@
     #result-image.visible {
       opacity: 1;
       pointer-events: auto;
+    }
+    /* Đảm bảo .elementor-widget-container có position relative để overlay anchor đúng */
+    #result-image .elementor-widget-container {
+      position: relative !important;
+    }
+    /* BW reveal overlay — inject vào TRONG .elementor-widget-container, trùm lên <img> */
+    #result-image .bw-reveal-overlay {
+      position: absolute !important;
+      top: 0;
+      left: 0;
+      width: 100% !important;
+      height: 100% !important;
+      z-index: 999 !important;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #result-image .bw-reveal-overlay.bw-show {
+      opacity: 1;
+    }
+    #result-image .bw-reveal-overlay.bw-fade-out {
+      opacity: 0;
+    }
+    #result-image .bw-reveal-overlay img {
+      width: 100% !important;
+      height: 100% !important;
+      max-width: 100% !important;
+      max-height: 100% !important;
+      object-fit: contain !important;
+      display: block !important;
+      margin: 0 !important;
+    }
+    /* Subtle breath effect */
+    #result-image .bw-reveal-overlay.bw-show img {
+      animation: bwBreath 1.2s ease-in-out infinite;
+    }
+    @keyframes bwBreath {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.88; transform: scale(1.015); }
     }
     /* result-video container hidden until user clicks */
     #result-video.video-section-hidden { display: none !important; }
@@ -86,6 +138,187 @@
     }
     .btn-action:hover  { opacity: 0.85; }
     .btn-action:active { transform: scale(0.97); }
+
+    /* ============================================================
+       INTRO COVERFLOW — 6 silhouette (Apple-style)
+    ============================================================ */
+    #intro {
+      display: none;
+      position: relative;
+      width: 100%;
+      min-height: 75vh;
+      padding: 50px 0 40px;
+      opacity: 0;
+      transform: translateX(-60px);
+      transition: opacity 0.6s ease, transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1);
+      pointer-events: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      perspective: 2200px;
+      -webkit-perspective: 2200px;
+    }
+    /* "ready" = đã display:flex nhưng chưa active → đợi rAF rồi mới slide-in */
+    #intro.intro-ready {
+      display: flex;
+    }
+    #intro.intro-active {
+      display: flex;
+      opacity: 1;
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+    /* Step-03 fade-out class — dùng song song với intro fade-in */
+    #step-03.step-fading-out {
+      opacity: 0 !important;
+      transform: translateX(40px) !important;
+      transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) !important;
+      pointer-events: none !important;
+    }
+    .intro-stage {
+      position: relative;
+      width: 100%;
+      max-width: 1100px;
+      height: 620px;
+      transform-style: preserve-3d;
+      -webkit-transform-style: preserve-3d;
+      margin: 0 auto;
+    }
+    .intro-card {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 320px;
+      height: 540px;
+      margin: -270px 0 0 -160px;
+      transform-origin: center center;
+      transition: transform 0.7s cubic-bezier(0.22, 0.61, 0.36, 1),
+                  opacity 0.7s ease,
+                  filter 0.7s ease;
+      will-change: transform, opacity, filter;
+      opacity: 0;
+      filter: brightness(0.5) blur(3px);
+      pointer-events: none;
+    }
+    .intro-card img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+    /* Positions: center, left-1, left-2 (hidden far), right-1, right-2 (hidden far) */
+    .intro-card.pos-center {
+      transform: translate3d(0, 0, 200px) rotateY(0deg) scale(1.15);
+      opacity: 1;
+      filter: brightness(1) blur(0);
+      z-index: 5;
+    }
+    .intro-card.pos-left-1 {
+      transform: translate3d(-320px, 0, 0) rotateY(40deg) scale(0.85);
+      opacity: 0.75;
+      filter: brightness(0.7) blur(0.5px);
+      z-index: 3;
+    }
+    .intro-card.pos-right-1 {
+      transform: translate3d(320px, 0, 0) rotateY(-40deg) scale(0.85);
+      opacity: 0.75;
+      filter: brightness(0.7) blur(0.5px);
+      z-index: 3;
+    }
+    .intro-card.pos-left-2 {
+      transform: translate3d(-540px, 0, -180px) rotateY(52deg) scale(0.6);
+      opacity: 0.35;
+      filter: brightness(0.5) blur(2px);
+      z-index: 1;
+    }
+    .intro-card.pos-right-2 {
+      transform: translate3d(540px, 0, -180px) rotateY(-52deg) scale(0.6);
+      opacity: 0.35;
+      filter: brightness(0.5) blur(2px);
+      z-index: 1;
+    }
+    .intro-card.pos-hidden {
+      transform: translate3d(0, 0, -400px) rotateY(0deg) scale(0.4);
+      opacity: 0;
+      filter: brightness(0.3) blur(6px);
+      z-index: 0;
+    }
+    /* Caption text */
+    .intro-caption {
+      margin-top: 40px;
+      max-width: 90%;
+      text-align: center;
+      font-size: clamp(18px, 2.6vw, 30px);
+      line-height: 1.45;
+      color: #fff;
+      font-weight: 600;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.55);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.6s ease 0.3s, transform 0.6s ease 0.3s;
+    }
+    #intro.intro-active .intro-caption {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .intro-caption .intro-line-1 { display: block; }
+    .intro-caption .intro-line-2 {
+      display: block;
+      margin-top: 8px;
+      color: #ffd700;
+    }
+    /* ==================== TABLET (768-1024px) ==================== */
+    @media (max-width: 1024px) {
+      #intro { min-height: 65vh; padding: 35px 0 30px; }
+      .intro-stage { max-width: 800px; height: 480px; }
+      .intro-card {
+        width: 240px; height: 400px;
+        margin: -200px 0 0 -120px;
+      }
+      .intro-card.pos-center {
+        transform: translate3d(0, 0, 150px) rotateY(0deg) scale(1.12);
+      }
+      .intro-card.pos-left-1 {
+        transform: translate3d(-220px, 0, 0) rotateY(40deg) scale(0.83);
+      }
+      .intro-card.pos-right-1 {
+        transform: translate3d(220px, 0, 0) rotateY(-40deg) scale(0.83);
+      }
+      .intro-card.pos-left-2 {
+        transform: translate3d(-380px, 0, -140px) rotateY(52deg) scale(0.58);
+      }
+      .intro-card.pos-right-2 {
+        transform: translate3d(380px, 0, -140px) rotateY(-52deg) scale(0.58);
+      }
+      .intro-caption { margin-top: 30px; font-size: clamp(16px, 3vw, 24px); }
+    }
+    /* ==================== MOBILE (max 767px) ==================== */
+    @media (max-width: 767px) {
+      #intro { min-height: 55vh; padding: 25px 0 20px; perspective: 1200px; }
+      .intro-stage { height: 340px; max-width: 100%; }
+      .intro-card {
+        width: 160px; height: 280px;
+        margin: -140px 0 0 -80px;
+      }
+      .intro-card.pos-center {
+        transform: translate3d(0, 0, 100px) rotateY(0deg) scale(1.1);
+      }
+      .intro-card.pos-left-1 {
+        transform: translate3d(-130px, 0, 0) rotateY(38deg) scale(0.82);
+      }
+      .intro-card.pos-right-1 {
+        transform: translate3d(130px, 0, 0) rotateY(-38deg) scale(0.82);
+      }
+      .intro-card.pos-left-2 {
+        transform: translate3d(-220px, 0, -110px) rotateY(50deg) scale(0.55);
+      }
+      .intro-card.pos-right-2 {
+        transform: translate3d(220px, 0, -110px) rotateY(-50deg) scale(0.55);
+      }
+      .intro-caption { margin-top: 22px; font-size: clamp(14px, 4vw, 18px); }
+    }
   `;
     document.head.appendChild(styleEl);
 
@@ -124,7 +357,7 @@
       // Elementor render: #result-image > .elementor-widget-container > img
       get resultImageEl() {
         return document.querySelector("#result-image .elementor-widget-container img") ||
-               document.querySelector("#result-image img");
+          document.querySelector("#result-image img");
       },
       btnDownload: document.getElementById("btn-download"),
       btnShare: document.getElementById("btn-share"),
@@ -134,7 +367,37 @@
 
       btnOver18: document.getElementById("btn-over-18"),
       btnCloseZaloPopup: document.getElementById("btn-close-pop-up-zalo"),
+      intro: document.getElementById("intro"),
     };
+
+
+    /* ============================================================
+       2b. INTRO CONFIG
+    ============================================================ */
+    const INTRO_DURATION_MS = 10000;     // Tổng thời gian intro hiển thị (10s)
+    const INTRO_SLIDE_MS = 1500;      // Mỗi nhân vật ở trung tâm bao lâu (1.5s)
+    const INTRO_BASE_URL = "https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/05/";
+    // BW_0 → BW_5: đồng bộ với personality index từ n8n/PHP
+    // 0=Vua tửu lượng, 1=DSDM, 2=DCBN, 3=BDN, 4=BTNG, 5=LPBN
+    const INTRO_IMAGES = [
+      INTRO_BASE_URL + "BW_0.webp",
+      INTRO_BASE_URL + "BW_1.webp",
+      INTRO_BASE_URL + "BW_2.webp",
+      INTRO_BASE_URL + "BW_3.webp",
+      INTRO_BASE_URL + "BW_4.webp",
+      INTRO_BASE_URL + "BW_5.webp",
+    ];
+
+    /* Helper: lấy BW URL theo personality index */
+    function getBwImageByPersonality(personality) {
+      const idx = parseInt(personality, 10);
+      if (Number.isInteger(idx) && idx >= 0 && idx < INTRO_IMAGES.length) {
+        return INTRO_IMAGES[idx];
+      }
+      return null;
+    }
+    const INTRO_CAPTION_LINE_1 = "Trên bàn bia thường có các Anh Tài này,";
+    const INTRO_CAPTION_LINE_2 = "cùng chờ xem bạn là Anh Tài nào?";
 
 
     /* ============================================================
@@ -149,6 +412,7 @@
       currentVideoUrl: "",
       transitioning: false,
       downloadMode: "image",   // "image" | "video" — quyết định btn-download tải gì
+      videoLoadingAnimInterval: null,
     };
 
     async function getFreshNonce() {
@@ -286,6 +550,165 @@
 
 
     /* ============================================================
+       4b. INTRO COVERFLOW ENGINE
+    ============================================================ */
+    let introTimer = null;
+    let introCleanup = null;
+
+    function buildIntroDOM() {
+      // Trả về element #intro đã tồn tại, hoặc tạo mới và inject vào body
+      let intro = document.getElementById("intro");
+      if (intro && intro.querySelector(".intro-stage")) return intro;
+
+      // Nếu đã có #intro (do Elementor render placeholder rỗng) thì xóa hết bên trong
+      if (intro) intro.innerHTML = "";
+      else {
+        intro = document.createElement("div");
+        intro.id = "intro";
+        // Inject vào trước step-05 để giữ thứ tự DOM hợp lý
+        const step05 = document.getElementById("step-05");
+        if (step05 && step05.parentNode) {
+          step05.parentNode.insertBefore(intro, step05);
+        } else {
+          document.body.appendChild(intro);
+        }
+      }
+
+      const stage = document.createElement("div");
+      stage.className = "intro-stage";
+
+      INTRO_IMAGES.forEach((src, idx) => {
+        const card = document.createElement("div");
+        card.className = "intro-card pos-hidden";
+        card.dataset.index = String(idx);
+        const img = document.createElement("img");
+        img.src = src;
+        img.alt = `Anh Tài ${idx + 1}`;
+        img.loading = "eager";
+        img.decoding = "async";
+        card.appendChild(img);
+        stage.appendChild(card);
+      });
+
+      const caption = document.createElement("div");
+      caption.className = "intro-caption";
+      caption.innerHTML = `
+        <span class="intro-line-1">${INTRO_CAPTION_LINE_1}</span>
+        <span class="intro-line-2">${INTRO_CAPTION_LINE_2}</span>
+      `;
+
+      intro.appendChild(stage);
+      intro.appendChild(caption);
+      return intro;
+    }
+
+    function applyCoverflowPositions(cards, centerIdx) {
+      const total = cards.length;
+      cards.forEach((card, i) => {
+        // Tính offset vòng tròn từ center
+        let diff = i - centerIdx;
+        // Wrap về [-floor(total/2), floor(total/2)]
+        if (diff > total / 2) diff -= total;
+        if (diff < -total / 2) diff += total;
+
+        // Reset classes
+        card.classList.remove(
+          "pos-center", "pos-left-1", "pos-right-1",
+          "pos-left-2", "pos-right-2", "pos-hidden"
+        );
+        if (diff === 0) card.classList.add("pos-center");
+        else if (diff === -1) card.classList.add("pos-left-1");
+        else if (diff === 1) card.classList.add("pos-right-1");
+        else if (diff === -2) card.classList.add("pos-left-2");
+        else if (diff === 2) card.classList.add("pos-right-2");
+        else card.classList.add("pos-hidden");
+      });
+    }
+
+    function runIntroAnimation() {
+      // Trả về Promise resolve sau INTRO_DURATION_MS, không hủy nửa chừng
+      return new Promise(resolve => {
+        // Ẩn banner + áp bg như các step sau step-02
+        const bannerEl = document.getElementById("banner");
+        if (bannerEl) bannerEl.style.display = "none";
+        document.body.classList.add("bg-step-3-active");
+
+        // Build DOM intro TRƯỚC (chưa hiện)
+        const intro = buildIntroDOM();
+        const cards = Array.from(intro.querySelectorAll(".intro-card"));
+        let currentIdx = 0;
+        applyCoverflowPositions(cards, currentIdx);
+
+        // ── CROSS-FADE step-03 → intro ──
+        const step03 = document.getElementById("step-03");
+
+        // Frame 1: bật display intro (chưa active) + thêm class fade-out cho step-03
+        intro.classList.remove("intro-active");
+        intro.classList.add("intro-ready");
+        if (step03) step03.classList.add("step-fading-out");
+
+        // Frame 2 (sau rAF kép): kích hoạt slide-in intro (song song với step-03 fade-out)
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            intro.classList.add("intro-active");
+          });
+        });
+
+        // Sau khi step-03 fade xong (~500ms) → ẩn hẳn để không chặn click
+        setTimeout(() => {
+          if (step03) {
+            step03.style.display = "none";
+            step03.classList.remove("step-active", "step-fading-out");
+          }
+        }, 550);
+
+        // Slideshow advance
+        introTimer = setInterval(() => {
+          currentIdx = (currentIdx + 1) % cards.length;
+          applyCoverflowPositions(cards, currentIdx);
+        }, INTRO_SLIDE_MS);
+
+        // Cleanup function — đảm bảo resolve và dừng timer
+        let resolved = false;
+        introCleanup = () => {
+          if (resolved) return;
+          resolved = true;
+          if (introTimer) { clearInterval(introTimer); introTimer = null; }
+          intro.classList.remove("intro-active");
+          // Đợi fade-out 600ms rồi ẩn hẳn
+          setTimeout(() => {
+            intro.style.display = "none";
+            intro.classList.remove("intro-ready");
+            // Reset transform để lần chạy sau slide lại từ trái
+            intro.style.transform = "";
+            requestAnimationFrame(() => {
+              intro.style.transform = "";
+            });
+            resolve();
+          }, 650);
+        };
+
+        setTimeout(() => introCleanup && introCleanup(), INTRO_DURATION_MS);
+      });
+    }
+
+    function hideIntroImmediately() {
+      // Dùng khi reset hoặc lỗi giữa chừng
+      if (introTimer) { clearInterval(introTimer); introTimer = null; }
+      const intro = document.getElementById("intro");
+      if (intro) {
+        intro.classList.remove("intro-active", "intro-ready");
+        intro.style.display = "none";
+        intro.style.transform = "";
+      }
+      // Cũng xóa class fade-out trên step-03 (phòng trường hợp lỗi giữa chừng)
+      const step03 = document.getElementById("step-03");
+      if (step03) step03.classList.remove("step-fading-out");
+      introCleanup = null;
+    }
+
+
+    /* ============================================================
        5. INITIAL SETUP
     ============================================================ */
     if (!isEditor) {
@@ -325,6 +748,41 @@
           btn.style.cursor = "default";
           if (label) btn.innerHTML = label;
           break;
+      }
+    }
+
+
+    /* ============================================================
+       VIDEO LOADING TEXT ANIMATION
+       Tạo hiệu ứng đánh chữ: "VIDEO ĐANG TẠO" → "." → ".." → "..." → "..." etc.
+    ============================================================ */
+    function startVideoLoadingAnimation() {
+      if (!DOM.btnGetVideo) return;
+      // Dừng animation cũ (nếu có) để tránh chạy chồng
+      stopVideoLoadingAnimation();
+
+      const baseText = "VIDEO ĐANG TẠO";
+      const dotStates = [".", "..", "...", "....", ".....", "....", "...", "..", "."];
+      let i = 0;
+
+      // Set ngay frame đầu để không bị delay 400ms
+      DOM.btnGetVideo.textContent = baseText + dotStates[0];
+      i = 1;
+
+      state.videoLoadingAnimInterval = setInterval(() => {
+        if (!DOM.btnGetVideo) {
+          stopVideoLoadingAnimation();
+          return;
+        }
+        DOM.btnGetVideo.textContent = baseText + dotStates[i];
+        i = (i + 1) % dotStates.length;
+      }, 400); // 400ms mỗi frame — đủ nhanh để mượt, đủ chậm để đọc được
+    }
+
+    function stopVideoLoadingAnimation() {
+      if (state.videoLoadingAnimInterval) {
+        clearInterval(state.videoLoadingAnimInterval);
+        state.videoLoadingAnimInterval = null;
       }
     }
 
@@ -463,10 +921,11 @@
       // Reset btn-get-video for next session
       if (DOM.btnGetVideo) {
         DOM.btnGetVideo.disabled = true;
-        DOM.btnGetVideo.textContent = "VIDEO ĐANG TẠO...";
         DOM.btnGetVideo.style.display = "";
         DOM.btnGetVideo.classList.remove("video-ready");
       }
+      stopVideoLoadingAnimation();  // Dừng animation khi reset
+      if (DOM.btnGetVideo) DOM.btnGetVideo.textContent = "VIDEO ĐANG TẠO...";
       if (DOM.videoStatusHint) { DOM.videoStatusHint.textContent = ""; DOM.videoStatusHint.style.display = ""; }
       if (DOM.resultVideo) DOM.resultVideo.classList.remove("video-section-hidden");
       if (DOM.resultImage) {
@@ -474,6 +933,8 @@
         // Clear img src bên trong widget
         const imgEl = DOM.resultImageEl;
         if (imgEl) imgEl.src = "";
+        // Dọn overlay BW (nếu còn sót — có thể có nhiều do bug cũ)
+        DOM.resultImage.querySelectorAll(".bw-reveal-overlay").forEach(el => el.remove());
       }
       if (DOM.fileInput) {
         DOM.fileInput.value = "";
@@ -489,6 +950,8 @@
       setButtonState(DOM.uploadButton, "disabled", "TẢI ẢNH LÊN");
       // Stop loading pulse
       if (DOM.loadingImagePreview) DOM.loadingImagePreview.classList.remove("is-loading");
+      // Ẩn intro nếu đang chạy (trường hợp lỗi giữa chừng hoặc btn-try-again)
+      hideIntroImmediately();
     }
 
     function cloneFormData(original) {
@@ -549,33 +1012,84 @@
       // Show preview image — ưu tiên image_url/preview_url, fallback img-personality
       const previewSrc = result.image_url || result.preview_url || result["img-personality"] || "";
       if (previewSrc && DOM.resultImage) {
-        // #result-image là Elementor widget DIV — phải update <img> bên trong
         const imgEl = DOM.resultImageEl;
+
+        // ── BW REVEAL EFFECT ────────────────────────────────────────
+        // 1. Lấy BW URL theo personality từ n8n (số 0-5)
+        // 2. Inject overlay BW vào #result-image
+        // 3. Set ảnh kết quả thật vào <img> gốc (nằm dưới overlay)
+        // 4. Fade-in BW (~400ms) → hold 1.2s → fade-out BW (~900ms) → lộ ảnh thật
+        const bwUrl = getBwImageByPersonality(result.personality);
+
         if (imgEl) {
           imgEl.src = previewSrc;
-          imgEl.srcset = ""; // clear srcset để tránh browser dùng ảnh cũ từ srcset
+          imgEl.srcset = "";
           imgEl.removeAttribute("srcset");
           imgEl.removeAttribute("sizes");
         }
-        DOM.resultImage.classList.add("visible");
+
+        // Dọn overlay cũ (trường hợp user chạy lại flow trong cùng session)
+        const oldOverlay = DOM.resultImage.querySelector(".bw-reveal-overlay");
+        if (oldOverlay) oldOverlay.remove();
+
+        // Debug log để kiểm tra dữ liệu
+        console.log("[BW reveal] personality:", result.personality, "→ BW URL:", bwUrl);
+
+        if (bwUrl) {
+          // Tạo overlay BW
+          const overlay = document.createElement("div");
+          overlay.className = "bw-reveal-overlay";
+          const bwImg = document.createElement("img");
+          bwImg.src = bwUrl;
+          bwImg.alt = "Anh Tài " + result.personality;
+          bwImg.loading = "eager";
+          bwImg.decoding = "async";
+          // Log lỗi load để debug
+          bwImg.onerror = () => console.warn("[BW reveal] Không load được:", bwUrl);
+          bwImg.onload = () => console.log("[BW reveal] Đã load BW:", bwUrl);
+          overlay.appendChild(bwImg);
+
+          // ── QUAN TRỌNG: inject vào TRONG .elementor-widget-container (cùng cấp với <img>) ──
+          // Nếu không có .elementor-widget-container thì fallback append vào #result-image
+          const container = DOM.resultImage.querySelector(".elementor-widget-container") || DOM.resultImage;
+          container.appendChild(overlay);
+
+          // Hiện #result-image
+          DOM.resultImage.classList.add("visible");
+
+          // Frame 1: fade-in BW (rAF kép để chắc chắn transition kích hoạt)
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              overlay.classList.add("bw-show");
+            });
+          });
+
+          // Sau 2.0s (đủ thời gian user nhận diện silhouette) → fade-out BW
+          setTimeout(() => {
+            overlay.classList.add("bw-fade-out");
+            overlay.classList.remove("bw-show");
+            // Xóa khỏi DOM sau khi fade xong để không chặn click vào ảnh thật
+            setTimeout(() => overlay.remove(), 1000);
+          }, 2000);
+
+        } else {
+          // Không có personality → hiện ảnh thật ngay như cũ
+          DOM.resultImage.classList.add("visible");
+        }
       }
 
       // ── BACKWARD COMPAT (n8n cũ single-job) ──────────────────────────────────
-      // n8n cũ trả video_url trong image result (PHP đã ghép vào sibling transient).
-      // Preload video ngay lập tức, không cần đợi video poller riêng.
       if (result.video_url && !state.videoUrl) {
         preloadVideoInBackground(result.video_url);
         if (DOM.videoStatusHint) {
           DOM.videoStatusHint.textContent = "Hoàn tất! Nhấn nút để xem video.";
         }
       } else {
-        // Keep result-video section hidden until user clicks
         if (DOM.resultVideo) DOM.resultVideo.classList.add("video-section-hidden");
-
         if (DOM.btnGetVideo) {
           DOM.btnGetVideo.disabled = true;
-          DOM.btnGetVideo.textContent = "VIDEO ĐANG TẠO...";
         }
+        startVideoLoadingAnimation();
         if (DOM.videoStatusHint) {
           DOM.videoStatusHint.textContent = "Ảnh preview sẵn sàng! Video đang được tạo nền...";
         }
@@ -616,6 +1130,7 @@
 
       // Enable the "Lấy Video" button once browser reports canplay or after 4s
       const enableBtn = () => {
+        stopVideoLoadingAnimation();  // ← Dừng animation khi video sẵn sàng
         if (DOM.btnGetVideo) {
           DOM.btnGetVideo.disabled = false;
           DOM.btnGetVideo.textContent = "LẤY VIDEO ĐẦY ĐỦ";
@@ -672,12 +1187,12 @@
            POLL A: /status?job=image_job_id  mỗi 3s  → showQuickImageResult
            POLL B: /status?job=video_job_id  mỗi 5s  → preloadVideoInBackground
     ============================================================ */
-    const PROXY_CHECK_URL  = "/wp-json/faceswap/v1/check";
-    const PROXY_SWAP_URL   = "/wp-json/faceswap/v1/swap";
+    const PROXY_CHECK_URL = "/wp-json/faceswap/v1/check";
+    const PROXY_SWAP_URL = "/wp-json/faceswap/v1/swap";
     const PROXY_STATUS_URL = "/wp-json/faceswap/v1/status";
 
-    const IMAGE_POLL_MS  = 3000;
-    const VIDEO_POLL_MS  = 5000;
+    const IMAGE_POLL_MS = 3000;
+    const VIDEO_POLL_MS = 5000;
     const POLL_MAX_WAIT_MS = 900000; // 15 min
 
     /* Generic poll — resolves when status === "done", rejects on error/timeout */
@@ -694,7 +1209,7 @@
             if (res.status === 404) { reject(new Error("Job không tồn tại hoặc đã hết hạn.")); return; }
             if (!res.ok) { setTimeout(tick, intervalMs); return; }
             const data = await res.json();
-            if (data.status === "done")  { resolve(data); return; }
+            if (data.status === "done") { resolve(data); return; }
             if (data.status === "error") { reject(new Error(data.reason || "Xử lý thất bại.")); return; }
             setTimeout(tick, intervalMs);
           } catch { setTimeout(tick, intervalMs); }
@@ -748,44 +1263,56 @@
             return;
           }
 
-          /* ── Step 2: Hiện loading, chuyển step-05 ── */
+          /* ── Step 2: Gửi swap NGAY (song song với intro animation) ── */
+          // Swap chỉ cần ACK từ n8n (~5s), timeout 30s là đủ
+          setButtonState(DOM.uploadButton, "loading", "Đang xử lý...");
+
+          const swapAbort = new AbortController();
+          const swapTimer = setTimeout(() => swapAbort.abort(), 30000);
+
+          // Fire swap (Promise) — KHÔNG await ở đây, để intro animation chạy song song
+          const swapPromise = (async () => {
+            try {
+              const swapRes = await fetch(PROXY_SWAP_URL, {
+                method: "POST",
+                headers: { 'X-LH-Faceswap-Nonce': nonce },
+                body: formData,
+                signal: swapAbort.signal,
+              });
+              if (!swapRes.ok) throw new Error(`Swap server error: ${swapRes.status}`);
+              let swapInit = await swapRes.json();
+              if (Array.isArray(swapInit)) swapInit = swapInit[0];
+              return swapInit;
+            } finally {
+              clearTimeout(swapTimer);
+            }
+          })();
+
+          /* ── Step 3: Hiển thị intro coverflow 10s (chạy song song với swap) ── */
+          // runIntroAnimation() tự ẩn step-03 và hiện #intro với coverflow
+          await runIntroAnimation();
+
+          /* ── Step 4: Sau intro xong → chuyển step-05 (loading như cũ) ── */
           if (DOM.step5Loading) DOM.step5Loading.style.display = "block";
           if (DOM.loadingImagePreview && DOM.imagePreview?.src) {
             DOM.loadingImagePreview.src = DOM.imagePreview.src;
             DOM.loadingImagePreview.classList.add("is-loading");
           }
           switchToStep("step-05");
-          setButtonState(DOM.uploadButton, "loading", "Đang xử lý...");
 
-          /* ── Step 3: Gửi swap — nhận image_job_id + video_job_id ngay ── */
-          // Swap chỉ cần ACK từ n8n (~5s), timeout 30s là đủ
-          const swapAbort = new AbortController();
-          const swapTimer = setTimeout(() => swapAbort.abort(), 30000);
-          let swapRes;
-          try {
-            swapRes = await fetch(PROXY_SWAP_URL, {
-              method: "POST",
-              headers: { 'X-LH-Faceswap-Nonce': nonce },
-              body: formData,
-              signal: swapAbort.signal,
-            });
-          } finally {
-            clearTimeout(swapTimer);
-          }
-          if (!swapRes.ok) throw new Error(`Swap server error: ${swapRes.status}`);
-          let swapInit = await swapRes.json();
-          if (Array.isArray(swapInit)) swapInit = swapInit[0];
+          /* ── Step 5: Đợi swap response (đã chạy nền từ trước) ── */
+          const swapInit = await swapPromise;
 
           // Dual-job mode (v2.0)
           if (swapInit?.image_job_id && swapInit?.video_job_id) {
             state.imageJobId = swapInit.image_job_id;
             state.videoJobId = swapInit.video_job_id;
 
-            /* ── Step 4A: Poll image (priority) — khi xong chuyển step-06 ngay ── */
+            /* ── Step 6A: Poll image (priority) — khi xong chuyển step-06 ngay ── */
             const imageResult = await pollJobResult(state.imageJobId, IMAGE_POLL_MS);
             showQuickImageResult(imageResult);
 
-            /* ── Step 4B: Poll video (background, đã bắt đầu song song) ── */
+            /* ── Step 6B: Poll video (background, đã bắt đầu song song) ── */
             pollJobResult(state.videoJobId, VIDEO_POLL_MS)
               .then(videoResult => {
                 if (videoResult.success && videoResult.video_url) {
@@ -794,10 +1321,14 @@
               })
               .catch(err => {
                 console.warn("[video poll] failed:", err.message);
+                stopVideoLoadingAnimation();
+                if (DOM.btnGetVideo) {
+                  DOM.btnGetVideo.textContent = "VIDEO KHÔNG KHẢ DỤNG";
+                }
                 if (DOM.videoStatusHint) DOM.videoStatusHint.textContent = "Video không khả dụng.";
               });
 
-          // Legacy single-job fallback (backward-compat with old n8n)
+            // Legacy single-job fallback (backward-compat with old n8n)
           } else if (swapInit?.job_id) {
             const swapResult = await pollJobResult(swapInit.job_id, VIDEO_POLL_MS);
             if (swapResult.success && swapResult.video_url) {
@@ -812,6 +1343,7 @@
 
         } catch (err) {
           console.error("Upload error:", err);
+          hideIntroImmediately();   // ← THÊM DÒNG NÀY
           alert("❌ Có lỗi xảy ra. Vui lòng thử lại!\n" + err.message);
           resetUploadForm();
           if (DOM.step5Loading) DOM.step5Loading.style.display = "none";
@@ -843,7 +1375,7 @@
           if (videoEl) {
             videoEl.classList.remove("video-hidden");
             videoEl.classList.add("video-visible");
-            videoEl.play().catch(() => {});
+            videoEl.play().catch(() => { });
           }
         }
 
@@ -866,7 +1398,7 @@
       const downloadUrl = isImageMode
         ? (state.imageResult?.image_url || state.imageResult?.preview_url || "")
         : state.currentVideoUrl;
-      
+
       let ext = isImageMode ? "jpg" : "mp4";
       if (downloadUrl) {
         const match = downloadUrl.match(/\.([a-zA-Z0-9]+)(?:[\?#]|$)/);
@@ -900,14 +1432,47 @@
       }
     }
 
+    // ================== SHARE FACEBOOK — SDK VERSION ==================
     function handleShare() {
       const shareUrl = "https://biatuoi-halida.com/";
-      const quote = "Ae vô đây check var thử coi mình có tài năng tiềm ẩn gì trên bàn nhậu không, xong gửi kết quả cho tui. Đủ đội hình mình lập hội đi Tiệc Vui Muôn Vẻ luôn nha 😂";
+      const quoteText = "Ae vô đây check var thử coi mình có tài năng tiềm ẩn gì trên bàn nhậu không, xong gửi kết quả cho tui. Đủ đội hình mình lập hội đi Tiệc Vui Muôn Vẻ luôn nha 😂";
+      const hashtag = "#BiaTuoiHalida";
 
-      // Thêm parameter quote để Facebook tự động điền nội dung (Lưu ý: FB có thể lờ đi nếu không dùng SDK)
-      const fbShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(quote)}`;
+      // Ưu tiên dùng Facebook SDK
+      if (window.FB && typeof window.FB.ui === "function") {
+        FB.ui(
+          {
+            method: "share",
+            href: shareUrl,
+            quote: quoteText,
+            hashtag: hashtag,
+            mobile_iframe: true
+          },
+          function (response) {
+            console.log("Facebook share response:", response);
+          }
+        );
+        return;
+      }
 
-      window.open(fbShareUrl, "_blank", "width=600,height=700,noopener,noreferrer");
+      // Fallback nếu SDK chưa load kịp
+      const appId = "991207586610170";
+      const redirectUri = window.location.href;
+
+      const fbShareUrl =
+        `https://www.facebook.com/dialog/share` +
+        `?app_id=${encodeURIComponent(appId)}` +
+        `&display=popup` +
+        `&href=${encodeURIComponent(shareUrl)}` +
+        `&quote=${encodeURIComponent(quoteText)}` +
+        `&hashtag=${encodeURIComponent(hashtag)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}`;
+
+      window.open(
+        fbShareUrl,
+        "fb-share",
+        "width=600,height=700,scrollbars=yes,resizable=yes"
+      );
     }
 
     if (DOM.btnDownload) DOM.btnDownload.addEventListener("click", handleDownload);

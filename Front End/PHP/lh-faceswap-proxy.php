@@ -347,6 +347,8 @@ function lh_handle_poll_status($request) {
                     $img_personality_direct = '';
                 }
 
+                $personality_val = is_numeric($raw_personality) ? (int)$raw_personality : null;
+
                 if ($output_type === 'image') {
                     $updated = [
                         'status'          => 'done',
@@ -355,6 +357,7 @@ function lh_handle_poll_status($request) {
                         'image_url'       => $result_url,
                         'preview_url'     => '',
                         'img-personality' => $img_personality_direct,
+                        'personality'     => $personality_val,
                         'sibling_job'     => $data['sibling_job'] ?? null,
                         'completed_at'    => $now,
                         '_source'         => 'dispatcher_direct',
@@ -366,6 +369,7 @@ function lh_handle_poll_status($request) {
                         'output_type'     => 'video',
                         'video_url'       => $result_url,
                         'img-personality' => $img_personality_direct,
+                        'personality'     => $personality_val,
                         'sibling_job'     => $data['sibling_job'] ?? null,
                         'completed_at'    => $now,
                         '_source'         => 'dispatcher_direct',
@@ -472,6 +476,7 @@ function lh_handle_n8n_callback($request) {
 
     $video_url       = sanitize_url($body['result_url'] ?? $body['video_url'] ?? '');
     $img_personality = sanitize_url($body['img-personality'] ?? '');
+    $personality_val = isset($body['personality']) ? (int)$body['personality'] : null;
     $reason          = sanitize_text_field($body['reason'] ?? '');
     $now             = time();
     $sibling_job     = $existing['sibling_job'] ?? null;
@@ -484,6 +489,7 @@ function lh_handle_n8n_callback($request) {
             'image_url'       => sanitize_url($body['result_url'] ?? $body['image_url'] ?? ''),
             'preview_url'     => sanitize_url($body['preview_url'] ?? ''),
             'img-personality' => $img_personality,
+            'personality'     => $personality_val,
             'reason'          => $reason,
             'completed_at'    => $now,
         ];
@@ -497,6 +503,7 @@ function lh_handle_n8n_callback($request) {
             'output_type'     => 'video',
             'video_url'       => $video_url,
             'img-personality' => $img_personality,
+            'personality'     => $personality_val,
             'reason'          => $reason,
             'completed_at'    => $now,
         ];
@@ -514,6 +521,7 @@ function lh_handle_n8n_callback($request) {
                 'image_url'       => '',           // chưa có ảnh riêng từ n8n cũ
                 'preview_url'     => '',
                 'img-personality' => $img_personality,
+                'personality'     => $personality_val,
                 'video_url'       => $video_url,   // truyền luôn để frontend có thể preload
                 'reason'          => $reason,
                 'completed_at'    => $now,

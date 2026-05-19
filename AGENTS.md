@@ -45,7 +45,16 @@
   - **Bugfix (4 pods per job)**: Loại bỏ duplicate `scale_up` gọi từ cả `autoscaler.py` và `job_processor.py`. Sửa logic `_acquire_worker` kiểm tra active pod theo đúng `worker_type` thay vì kiểm tra tổng, giúp video jobs không bị block khi image pods đang boot.
   - **PHP Personality Map**: Thêm `PERSONALITY_IMG_MAP` vào `lh-faceswap-proxy.php` để map số personality (0-5) từ Dispatcher sang URL ảnh thật khi dùng fallback `dispatcher_direct` (bypass n8n).
   - **Mobile Upload Resilience**: Fix lỗi đứng/treo khi upload trên mobile bằng cách (1) Hỗ trợ file type HEIC rỗng trên iOS Safari; (2) Thêm timeout 8s cho `canvas.toBlob()` tránh treo RAM; (3) Thêm `AbortController` timeout (70s/30s) cho các fetch request tránh treo do mạng yếu.
-  - **UI Optimization**: Chuẩn hóa breakpoints (Tablet: 1024px, Mobile: 767px) trên toàn bộ frontend; Tăng kích thước kính lúp trên mobile thêm 30%; Vô hiệu hóa site footer của theme bằng CSS.
+  - **UI Optimization**: Chuẩn hóa breakpoints (Tablet: 1024px, Mobile: 767px) trên toàn bộ frontend; Tăng kích thước kính lúp trên mobile thêm 30%; Vô hiệu hóa site footer của theme bằng CSS; Điều chỉnh vị trí nút `#btn-nhap-tiec` trên Tablet + Mobile từ `bottom: 10%` thành `bottom: 15%` để bố cục thông thoáng hơn.
+- [2026-05-18] VIP Workers Deployment: Deployed 2 VIP pods (NVIDIA GeForce RTX 5090) and registered them in Redis with worker type routing and 24-hour pin: 1 Image VIP worker (4et114i8kpsvfw) and 1 Video VIP worker (kzivzwnrhamu8v) using custom deployment script scratch/deploy_vip_pods.py.
+- [2026-05-18] Facebook Sharing Optimization: Upgraded the frontend sharing mechanism (frontend_script.html) from Facebook SDK to a hybrid approach (using FB SDK with App ID and `dialog/share` fallback popup) to successfully bypass modern Meta limitations, enabling both the custom quote and the hashtag `#BiaTuoiHalida` simultaneously in the share flow.
+- [2026-05-18] Video Loading Animation: Added a custom dynamic typing dots loading animation ("VIDEO ĐANG TẠO" -> "." -> ".." -> "..." -> "...." -> "....." -> "...." etc.) to `btn-get-video` in `frontend_script.html` to improve visual feedback when generating video in the background.
+- [2026-05-18] Parallel FaceSwap Intro & BW Reveal (Coverflow v2.0): Triển khai intro Coverflow 3D kiểu Apple dài 10 giây chạy song song trực tiếp với quá trình gọi API `/swap`. Tích hợp hiệu ứng BW Reveal (ảnh đen trắng hiện trước 1.2s, sau đó fade sang ảnh thật), sử dụng ảnh mapping BW_0→BW_5 từ `personality` do n8n/PHP trả về để tạo hiệu ứng chuyển tiếp ấn tượng hơn. Hỗ trợ responsive tuyệt đối cho Tablet & Mobile. Tích hợp dọn dẹp an toàn khi Reset/Lỗi.
+- [2026-05-19] VIP Workers Expansion: Deployed and registered 2 brand new VIP pods (NVIDIA GeForce RTX 5090) in Upstash Redis, pinned for 24 hours: 1 Image VIP worker (gs22j5x17t2vx9) and 1 Video VIP worker (pnmyw06nsv7h7s) using `scratch/deploy_new_vip_pods.py`.
+
+
+
+
 
 
 
