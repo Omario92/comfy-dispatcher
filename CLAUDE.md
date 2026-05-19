@@ -50,7 +50,7 @@
 - [2026-05-18] Facebook Sharing Optimization: Upgraded the frontend sharing mechanism (frontend_script.html) from Facebook SDK to a hybrid approach (using FB SDK with App ID and `dialog/share` fallback popup) to successfully bypass modern Meta limitations, enabling both the custom quote and the hashtag `#BiaTuoiHalida` simultaneously in the share flow.
 - [2026-05-18] Video Loading Animation: Added a custom dynamic typing dots loading animation ("VIDEO ĐANG TẠO" -> "." -> ".." -> "..." -> "...." -> "....." -> "...." etc.) to `btn-get-video` in `frontend_script.html` to improve visual feedback when generating video in the background.
 - [2026-05-18] Parallel FaceSwap Intro & BW Reveal (Coverflow v2.0): Triển khai intro Coverflow 3D kiểu Apple dài 10 giây chạy song song trực tiếp với quá trình gọi API `/swap`. Tích hợp hiệu ứng BW Reveal (ảnh đen trắng hiện trước 1.2s, sau đó fade sang ảnh thật), sử dụng ảnh mapping BW_0→BW_5 từ `personality` do n8n/PHP trả về để tạo hiệu ứng chuyển tiếp ấn tượng hơn. Hỗ trợ responsive tuyệt đối cho Tablet & Mobile. Tích hợp dọn dẹp an toàn khi Reset/Lỗi.
-- [2026-05-19] VIP Workers Expansion: Deployed and registered 2 brand new VIP pods (NVIDIA GeForce RTX 5090) in Upstash Redis, pinned for 24 hours: 1 Image VIP worker (gs22j5x17t2vx9) and 1 Video VIP worker (pnmyw06nsv7h7s) using `scratch/deploy_new_vip_pods.py`.
+- [2026-05-19] VIP Workers Lifecycle: Deployed 2 brand new VIP pods (RTX 5090) (Image: gs22j5x17t2vx9, Video: pnmyw06nsv7h7s) pinned for 24 hours using `scratch/deploy_new_vip_pods.py`, and later safely terminated them and cleaned up their Redis registries via `scratch/terminate_vip_pods.py` per user request.
 
 
 
