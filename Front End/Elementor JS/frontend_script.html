@@ -1,15 +1,6 @@
 <script>
   document.addEventListener("DOMContentLoaded", () => {
 
-    /* ================== LOAD FACEBOOK SDK ================== */
-    (function (d, s, id) {
-      var js, fjs = d.getElementsByTagName(s)[0];
-      if (d.getElementById(id)) return;
-      js = d.createElement(s); js.id = id;
-      js.src = "https://connect.facebook.net/vi_VN/sdk.js#xfbml=1&version=v19.0&appId=991207586610170&autoLogAppEvents=1";
-      fjs.parentNode.insertBefore(js, fjs);
-    }(document, 'script', 'facebook-jssdk'));
-
     /* ============================================================
        0. INJECT TRANSITION STYLES
        All step animation CSS lives here — no external stylesheet needed.
@@ -360,7 +351,6 @@
           document.querySelector("#result-image img");
       },
       btnDownload: document.getElementById("btn-download"),
-      btnShare: document.getElementById("btn-share"),
       btnGetVideo: document.getElementById("btn-get-video"),
       videoStatusHint: document.getElementById("video-status-hint"),
       imgPersonality: document.getElementById("img-personality"),
@@ -1406,51 +1396,7 @@
       }
     }
 
-    // ================== SHARE FACEBOOK — SDK VERSION ==================
-    function handleShare() {
-      const shareUrl = "https://biatuoi-halida.com/";
-      const quoteText = "Ae vô đây check var thử coi mình có tài năng tiềm ẩn gì trên bàn nhậu không, xong gửi kết quả cho tui. Đủ đội hình mình lập hội đi Tiệc Vui Muôn Vẻ luôn nha 😂";
-      const hashtag = "#BiaTuoiHalida";
-
-      // Ưu tiên dùng Facebook SDK
-      if (window.FB && typeof window.FB.ui === "function") {
-        FB.ui(
-          {
-            method: "share",
-            href: shareUrl,
-            quote: quoteText,
-            hashtag: hashtag,
-            mobile_iframe: true
-          },
-          function (response) {
-            console.log("Facebook share response:", response);
-          }
-        );
-        return;
-      }
-
-      // Fallback nếu SDK chưa load kịp
-      const appId = "991207586610170";
-      const redirectUri = window.location.href;
-
-      const fbShareUrl =
-        `https://www.facebook.com/dialog/share` +
-        `?app_id=${encodeURIComponent(appId)}` +
-        `&display=popup` +
-        `&href=${encodeURIComponent(shareUrl)}` +
-        `&quote=${encodeURIComponent(quoteText)}` +
-        `&hashtag=${encodeURIComponent(hashtag)}` +
-        `&redirect_uri=${encodeURIComponent(redirectUri)}`;
-
-      window.open(
-        fbShareUrl,
-        "fb-share",
-        "width=600,height=700,scrollbars=yes,resizable=yes"
-      );
-    }
-
     if (DOM.btnDownload) DOM.btnDownload.addEventListener("click", handleDownload);
-    if (DOM.btnShare) DOM.btnShare.addEventListener("click", handleShare);
 
 
     /* ============================================================
