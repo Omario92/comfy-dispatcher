@@ -909,8 +909,6 @@
       state.imageResult = null;
       state.videoUrl = null;
       state.downloadMode = "image";   // reset về image mode
-      // Luôn dispatch custom event để TẤT CẢ các instances của beerBtn (nếu có nhiều) đều được reset
-      document.dispatchEvent(new CustomEvent("beerBtn:reset"));
       // Reset btn-video-loading beer button
       if (window.beerBtnReset) window.beerBtnReset();
       else if (DOM.btnGetVideo) {
@@ -1125,8 +1123,6 @@
       // Enable beer button once browser reports canplay or after 4s
       const enableBtn = () => {
         stopVideoLoadingAnimation();
-        // Luôn dispatch custom event để TẤT CẢ các instances của beerBtn (nếu có nhiều) đều được complete
-        document.dispatchEvent(new CustomEvent("beerBtn:complete"));
         // Ưu tiên beerBtn API (btn-video-loading.html)
         if (window.beerBtnComplete) {
           window.beerBtnComplete();
@@ -1295,8 +1291,6 @@
               .catch(err => {
                 console.warn("[video poll] failed:", err.message);
                 stopVideoLoadingAnimation();
-                // Luôn dispatch custom event để TẤT CẢ các instances của beerBtn (nếu có nhiều) nhận diện lỗi
-                document.dispatchEvent(new CustomEvent("beerBtn:error"));
                 // Báo lỗi cho beer button
                 if (window.beerBtnError) {
                   window.beerBtnError();

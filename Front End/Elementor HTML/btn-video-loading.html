@@ -1,11 +1,14 @@
 <!-- =====================================================
-     BTN-VIDEO-LOADING — Beer Loading Button (v2)
+     BTN-VIDEO-LOADING — Beer Loading Button (v3.0)
      Thay thế hoàn toàn #btn-get-video trong frontend_script.html
+     Sử dụng hai file ảnh WebP:
+       - BEER_BAR.webp làm khung ngoài (shell track background)
+       - BEER_BAR_2.webp làm ruột bia (fill visual)
      CSS ID wrapper: btn-video-loading
 
      TRẠNG THÁI:
        loading  → Beer fill tăng dần 90s, text "Video Đang Được Tạo..."
-       ready    → Fill 100%, text "Video Đã Sẵn Sàng", glow pulse
+       ready    → Fill 100%, text "Video Đã Sẵn Sàng", glow pulse, hover enabled
        hidden   → Ẩn sau khi user click (video đã hiện)
        error    → Text "Video Không Khả Dụng", fill dừng
 
@@ -19,9 +22,22 @@
 
 <style>
   /* ============================
-     GOOGLE FONT IMPORT (Fallback nếu Myriad Pro chưa load)
+     GOOGLE FONT IMPORT
   ============================ */
   @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@500;600&display=swap');
+
+  /* ============================
+     VARIABLES
+  ============================ */
+  :root {
+    --beer-btn-width: min(680px, 96vw);
+    --beer-btn-height: 72px;
+  }
+  @media (max-width: 480px) {
+    :root {
+      --beer-btn-height: 58px;
+    }
+  }
 
   /* ============================
      RESET & WRAPPER
@@ -36,61 +52,51 @@
   }
 
   /* ============================
-     OUTER SHELL (Gold border pill)
+     OUTER SHELL (BEER_BAR.webp as frame background)
   ============================ */
   .beer-btn-shell {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: min(680px, 96vw);
-    height: 72px;
+    width: var(--beer-btn-width);
+    height: var(--beer-btn-height);
     border-radius: 999px;
-    padding: 5px;
+    background: url("https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/05/BEER_BAR.webp") no-repeat center;
+    background-size: 100% 100%;
+    overflow: hidden;
 
-    /* Brand palette #f4d877 / #c68922 */
-    background:
-      linear-gradient(180deg,
-        #f4d877 0%,
-        #e0b840 18%,
-        #c68922 40%,
-        #e0b840 60%,
-        #f4d877 80%,
-        #c68922 100%
-      );
-
-    box-shadow:
-      0 0 0 2px #b07610,
-      0 6px 28px rgba(198, 137, 34, 0.65),
-      0 2px 8px rgba(244, 216, 119, 0.4) inset,
-      0 -2px 8px rgba(120, 70, 0, 0.3) inset;
-
-    /* Normal state */
-    cursor: pointer;
-    transition: transform 0.3s ease, filter 0.3s ease, opacity 0.3s ease;
+    /* Normal state (when loading/disabled) */
+    cursor: wait !important;
+    transition: transform 0.3s ease, filter 0.3s ease, opacity 0.3s ease !important;
   }
 
-  /* Hover */
-  .beer-btn-shell:hover {
+  /* HOVER - CHỈ HOẠT ĐỘNG KHI ĐÃ SẴN SÀNG (is-ready) */
+  .beer-btn-shell.is-ready {
+    cursor: pointer !important;
+    animation: beerReadyPulse 1.6s ease-in-out infinite;
+  }
+
+  .beer-btn-shell.is-ready:hover {
     transform: scale(1.05) !important;
     filter: brightness(1.1) !important;
   }
 
-  /* READY state — glow pulse */
-  .beer-btn-shell.is-ready {
-    animation: beerReadyPulse 1.6s ease-in-out infinite;
-  }
-
+  /* READY glow pulse */
   @keyframes beerReadyPulse {
-    0%, 100% { box-shadow: 0 0 0 2px #b07610, 0 6px 28px rgba(198,137,34,0.65), 0 2px 8px rgba(244,216,119,0.4) inset; }
-    50%       { box-shadow: 0 0 0 4px #f4d877, 0 8px 36px rgba(244,216,119,0.9), 0 2px 12px rgba(244,216,119,0.6) inset; }
+    0%, 100% {
+      box-shadow: 0 0 0 2px rgba(198, 137, 34, 0.4), 0 6px 28px rgba(198, 137, 34, 0.5);
+    }
+    50% {
+      box-shadow: 0 0 0 4px rgba(244, 216, 119, 0.6), 0 8px 36px rgba(244, 216, 119, 0.8);
+    }
   }
 
   /* ERROR state */
   .beer-btn-shell.is-error {
-    filter: grayscale(60%) brightness(0.85);
-    cursor: not-allowed;
-    animation: none;
+    filter: grayscale(60%) brightness(0.85) !important;
+    cursor: not-allowed !important;
+    animation: none !important;
   }
   .beer-btn-shell.is-error:hover {
     transform: none !important;
@@ -105,7 +111,7 @@
   }
 
   /* ============================
-     INNER TRACK (hollow pill)
+     INNER TRACK (transparent container with mask)
   ============================ */
   .beer-btn-track {
     position: relative;
@@ -113,67 +119,34 @@
     height: 100%;
     border-radius: 999px;
     overflow: hidden;
-    background: linear-gradient(180deg, #d4940e 0%, #a86810 40%, #c68922 70%, #d8a830 100%);
-
-    box-shadow:
-      inset 0 3px 10px rgba(0, 0, 0, 0.35),
-      inset 0 -2px 6px rgba(244, 216, 119, 0.3);
+    background: transparent;
   }
 
   /* ============================
-     BEER FILL (animated left portion)
+     BEER FILL (sliding mask)
   ============================ */
   .beer-btn-fill {
     position: absolute;
     left: 0;
     top: 0;
     height: 100%;
-    width: 8%;
+    width: 8%; /* Thay đổi bằng JS */
     border-radius: 999px 0 0 999px;
     overflow: hidden;
     will-change: width;
     transition: width 0.6s ease-in-out;
-
-    background:
-      radial-gradient(ellipse at 30% 60%, rgba(255,255,255,0.20) 0%, transparent 55%),
-      linear-gradient(180deg,
-        #e8a828 0%,
-        #c68922 25%,
-        #b07210 55%,
-        #c88820 80%,
-        #e8a828 100%
-      );
   }
 
-  /* Shiny highlight on beer fill */
-  .beer-btn-fill::after {
-    content: "";
+  /* Kỹ thuật sliding mask chứa ảnh bia đầy đủ không bị méo */
+  .beer-btn-fill-image {
     position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg,
-      rgba(255,255,255,0.28) 0%,
-      rgba(255,255,255,0.06) 45%,
-      transparent 60%
-    );
-  }
-
-  /* DIVIDER LINE between fill and empty */
-  .beer-btn-fill::before {
-    content: "";
-    position: absolute;
-    right: 0;
-    top: 8%;
-    height: 84%;
-    width: 3px;
-    background: linear-gradient(180deg,
-      transparent 0%,
-      rgba(255,255,255,0.5) 20%,
-      rgba(255,255,255,0.7) 50%,
-      rgba(255,255,255,0.5) 80%,
-      transparent 100%
-    );
-    border-radius: 2px;
-    box-shadow: 0 0 8px rgba(255,255,255,0.4);
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: var(--beer-btn-width);
+    background: url("https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/05/BEER_BAR_2.webp") no-repeat center;
+    background-size: 100% 100%;
+    pointer-events: none;
   }
 
   /* ============================
@@ -184,12 +157,13 @@
     inset: 0;
     overflow: hidden;
     border-radius: 999px 0 0 999px;
+    pointer-events: none;
   }
 
   .bubble {
     position: absolute;
     border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.8), rgba(255,200,80,0.3));
+    background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.85), rgba(255,200,80,0.4));
     opacity: 0;
     animation: bubble-rise var(--dur, 2.4s) ease-in infinite;
     animation-delay: var(--delay, 0s);
@@ -197,41 +171,9 @@
 
   @keyframes bubble-rise {
     0%   { transform: translateY(0) scale(1);   opacity: 0; }
-    10%  { opacity: 0.75; }
-    80%  { opacity: 0.5; }
+    10%  { opacity: 0.8; }
+    80%  { opacity: 0.6; }
     100% { transform: translateY(-60px) scale(0.6); opacity: 0; }
-  }
-
-  /* ============================
-     FOAM on top of fill
-  ============================ */
-  .beer-foam {
-    position: absolute;
-    top: 4px;
-    left: 6px;
-    right: 6px;
-    height: 10px;
-    border-radius: 999px;
-    background: linear-gradient(90deg,
-      rgba(255,255,255,0.55) 0%,
-      rgba(255,240,200,0.35) 40%,
-      rgba(255,255,255,0.1) 70%,
-      transparent 100%
-    );
-    overflow: hidden;
-    pointer-events: none;
-  }
-
-  .beer-foam::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background:
-      radial-gradient(circle at 15% 50%, rgba(255,255,255,0.6) 4px, transparent 4px),
-      radial-gradient(circle at 30% 40%, rgba(255,255,255,0.5) 3px, transparent 3px),
-      radial-gradient(circle at 48% 60%, rgba(255,255,255,0.5) 5px, transparent 5px),
-      radial-gradient(circle at 65% 45%, rgba(255,255,255,0.4) 3px, transparent 3px),
-      radial-gradient(circle at 80% 55%, rgba(255,255,255,0.5) 4px, transparent 4px);
   }
 
   /* ============================
@@ -250,15 +192,15 @@
   .beer-btn-label span {
     font-family: "Myriad Pro", "Myriat-Pro", "Myriad Web Pro", "Nunito", "Gill Sans", "Optima", "Segoe UI", sans-serif;
     font-size: clamp(15px, 2.5vw, 22px);
-    font-weight: 500;
+    font-weight: 600;
     letter-spacing: 0.6px;
     color: #1f1d53;
     text-align: center;
 
     text-shadow:
-      0 1px 0 rgba(255,255,255,0.55),
-      0 2px 6px rgba(0, 0, 0, 0.18),
-      0 -1px 2px rgba(244, 216, 119, 0.4);
+      0 1px 0 rgba(255,255,255,0.65),
+      0 2px 6px rgba(0, 0, 0, 0.22),
+      0 -1px 2px rgba(254, 226, 129, 0.5);
 
     -webkit-text-stroke: 0.3px rgba(255,255,255,0.3);
     user-select: none;
@@ -335,32 +277,6 @@
     0%   { background-position: -100% center; }
     100% { background-position: 200% center; }
   }
-
-  /* ============================
-     TOP GLOSS on outer shell
-  ============================ */
-  .beer-btn-shell::before {
-    content: "";
-    position: absolute;
-    top: 5px;
-    left: 10%;
-    right: 10%;
-    height: 40%;
-    border-radius: 999px;
-    background: linear-gradient(180deg,
-      rgba(244, 216, 119, 0.45) 0%,
-      rgba(255,255,255,0.06) 100%
-    );
-    pointer-events: none;
-    z-index: 20;
-  }
-
-  /* ============================
-     RESPONSIVE
-  ============================ */
-  @media (max-width: 480px) {
-    .beer-btn-shell { height: 58px; }
-  }
 </style>
 
 <!-- ===== MARKUP ===== -->
@@ -368,13 +284,11 @@
   <div class="beer-btn-shell" id="_beer-shell">
     <div class="beer-btn-track">
 
-      <!-- Beer fill with animated bubbles -->
+      <!-- Beer fill (sliding mask) with animated bubbles -->
       <div class="beer-btn-fill" id="_beer-fill">
+        <div class="beer-btn-fill-image"></div>
         <div class="beer-bubbles" id="_beer-bubbles"></div>
       </div>
-
-      <!-- Foam highlight -->
-      <div class="beer-foam"></div>
 
       <!-- Label -->
       <div class="beer-btn-label">
@@ -391,126 +305,83 @@
 </div><!-- /#btn-video-loading -->
 
 <script>
+/* ============================================================
+   BTN-VIDEO-LOADING — Integration Script (v3.1 clean)
+   Đặt trực tiếp trong btn-video-loading.html, ngay sau markup.
+============================================================ */
 (function () {
-  /* ============================================================
-     BTN-VIDEO-LOADING — Full Integration Script
-     Thay thế hoàn toàn #btn-get-video trong frontend_script.html
-  ============================================================ */
+  var shell = null;
+  var fill = null;
+  var bubWrap = null;
+  var textEl = null;
 
-  // Find local elements relative to this script instance's parent container
-  // to avoid multi-instance conflicts (e.g. Elementor duplicating Desktop/Mobile widgets)
-  var currentScript = document.currentScript;
-  var container     = currentScript ? currentScript.parentNode : document;
+  var _timer = null;
+  var _isReady = false;
+  var _isError = false;
+  var _initialized = false;
+  var FAKE_DUR_MS = 90000;
 
-  var shell   = container.querySelector(".beer-btn-shell");
-  var fill    = container.querySelector(".beer-btn-fill");
-  var bubWrap = container.querySelector(".beer-bubbles");
-  var textEl  = container.querySelector(".beer-btn-label > span");
-
-  if (!shell || !fill) {
-    console.warn("[beerBtn] Missing critical DOM element shell or fill. Returning.");
-    return;
+  function findElements() {
+    shell = document.getElementById("_beer-shell");
+    fill = document.getElementById("_beer-fill");
+    bubWrap = document.getElementById("_beer-bubbles");
+    textEl = document.getElementById("_beer-text");
+    return !!(shell && fill);
   }
 
-  /* ---- Bubble factory ---- */
-  if (bubWrap) {
+  function _clearTimer() {
+    if (_timer) {
+      clearInterval(_timer);
+      _timer = null;
+    }
+  }
+
+  function _setFill(pct) {
+    if (!fill) return;
+    var safePct = Math.max(0, Math.min(100, pct));
+    fill.style.width = safePct + "%";
+    fill.style.borderRadius = safePct >= 98 ? "999px" : "999px 0 0 999px";
+  }
+
+  function _setLabel(txt) {
+    if (!textEl) return;
+    if (textEl.childNodes && textEl.childNodes.length) {
+      textEl.childNodes[0].nodeValue = txt + " ";
+    } else {
+      textEl.textContent = txt;
+    }
+  }
+
+  function _makeBubbles() {
+    if (!bubWrap || bubWrap.dataset.ready === "1") return;
+    bubWrap.dataset.ready = "1";
+    bubWrap.innerHTML = "";
+
     var BUBBLE_COUNT = 14;
     for (var b = 0; b < BUBBLE_COUNT; b++) {
       var bEl = document.createElement("div");
       bEl.className = "bubble";
       var size = (3 + Math.random() * 8) + "px";
       bEl.style.cssText = [
-        "width:"   + size,
-        "height:"  + size,
-        "left:"    + (5 + Math.random() * 88) + "%",
-        "bottom:"  + (Math.random() * 30) + "px",
-        "--dur:"   + (1.6 + Math.random() * 2.4) + "s",
-        "--delay:" + (Math.random() * 3) + "s",
+        "width:" + size,
+        "height:" + size,
+        "left:" + (5 + Math.random() * 88) + "%",
+        "bottom:" + (Math.random() * 30) + "px",
+        "--dur:" + (1.6 + Math.random() * 2.4) + "s",
+        "--delay:" + (Math.random() * 3) + "s"
       ].join(";");
       bubWrap.appendChild(bEl);
     }
   }
 
-  /* ---- State ---- */
-  var _pct        = 8;
-  var _timer      = null;
-  var _isReady    = false;
-  var _isError    = false;
-  var FAKE_DUR_MS = 90000; // 90s fake loading duration
-
-  /* ---- Internal helpers ---- */
-  function _setFill(pct) {
-    _pct = Math.max(0, Math.min(100, pct));
-    if (fill) {
-      fill.style.width = _pct + "%";
-      // Khi fill gần đầy → ẩn divider line vì trông lạ ở 100%
-      fill.style.borderRadius = _pct >= 98 ? "999px" : "999px 0 0 999px";
-    }
-  }
-
-  function _clearTimer() {
-    if (_timer) { clearInterval(_timer); _timer = null; }
-  }
-
-  function _setLabel(txt) {
-    if (!textEl) return;
-    try {
-      // Giữ nguyên dots & check spans, chỉ thay text node đầu
-      // Tìm hoặc tạo text node đầu tiên để cập nhật an toàn
-      var firstChild = textEl.childNodes[0];
-      if (firstChild && firstChild.nodeType === 3) { // Node.TEXT_NODE === 3
-        firstChild.nodeValue = txt + " ";
-      } else {
-        var newText = document.createTextNode(txt + " ");
-        textEl.insertBefore(newText, textEl.firstChild);
-      }
-    } catch (e) {
-      console.warn("[beerBtn] Failed to set label:", e);
-    }
-  }
-
-  /* ---- Start loading progress (fake 90s) ---- */
-  function _startProgress() {
+  function _applyReadyUI() {
+    if (!findElements()) return;
     _clearTimer();
-    _isReady = false;
-    _isError = false;
-    if (shell) {
-      shell.classList.remove("is-ready", "is-error", "is-hidden");
-    }
-    _setFill(8);
-    _setLabel("Video Đang Được Tạo");
-
-    var start = Date.now();
-
-    _timer = setInterval(function () {
-      var elapsed = Date.now() - start;
-      var t   = Math.min(elapsed / FAKE_DUR_MS, 1);
-      // Ease-out: nhanh đầu, chậm cuối, tối đa 90%
-      var val = 8 + (82 * (1 - Math.pow(1 - t, 2.5)));
-      _setFill(val);
-      if (t >= 1) _clearTimer();
-    }, 300);
-  }
-
-  /* ============================================================
-     LOCAL INSTANCE METHODS — Safe for multiple instances
-  ============================================================ */
-  function localReset() {
-    _isReady = false;
-    _isError = false;
-    _startProgress();
-  }
-
-  function localComplete() {
-    _clearTimer();
-    _isReady = true;
-    _isError = false;
     if (shell) {
       shell.classList.add("is-ready");
-      shell.classList.remove("is-error");
+      shell.classList.remove("is-error", "is-hidden");
     }
     _setLabel("Video Đã Sẵn Sàng");
-    // Animate fill lên 100% mượt
     if (fill) {
       fill.style.transition = "width 1.2s cubic-bezier(0.16,1,0.3,1)";
       _setFill(100);
@@ -520,10 +391,9 @@
     }
   }
 
-  function localError() {
+  function _applyErrorUI() {
+    if (!findElements()) return;
     _clearTimer();
-    _isError = true;
-    _isReady = false;
     if (shell) {
       shell.classList.add("is-error");
       shell.classList.remove("is-ready");
@@ -531,98 +401,148 @@
     _setLabel("Video Không Khả Dụng");
   }
 
-  function localHide() {
-    if (shell) shell.classList.add("is-hidden");
+  function _startProgress() {
+    if (!findElements()) return;
+    _clearTimer();
+    _isReady = false;
+    _isError = false;
+
+    if (shell) shell.classList.remove("is-ready", "is-error", "is-hidden");
+    _setFill(8);
+    _setLabel("Video Đang Được Tạo");
+
+    var start = Date.now();
+    _timer = setInterval(function () {
+      var elapsed = Date.now() - start;
+      var t = Math.min(elapsed / FAKE_DUR_MS, 1);
+      var val = 8 + (82 * (1 - Math.pow(1 - t, 2.5))); // chạy tới ~90%, chờ complete
+      _setFill(val);
+      if (t >= 1) _clearTimer();
+    }, 300);
   }
 
-  function localShow() {
-    if (shell) shell.classList.remove("is-hidden");
-  }
-
-  /* Expose to global window for backward compatibility (holds the latest instance) */
-  window.beerBtnReset    = localReset;
-  window.beerBtnComplete = localComplete;
-  window.beerBtnError    = localError;
-  window.beerBtnHide     = localHide;
-  window.beerBtnShow     = localShow;
-
-  /* ============================================================
-     CLICK HANDLER — Sao chép logic btn-get-video
-  ============================================================ */
-  shell.addEventListener("click", function () {
-    // Chỉ phản ứng khi đã sẵn sàng
+  function showVideoFromState() {
     if (!_isReady || _isError) return;
 
-    var faceswapState = window.faceswapState;
-    if (!faceswapState || (!faceswapState.videoUrl && !faceswapState.currentVideoUrl)) return;
-    var targetVideoUrl = faceswapState.videoUrl || faceswapState.currentVideoUrl;
+    var st = window.faceswapState;
+    if (!st || !st.videoUrl) return;
 
-    /* 1. Ẩn ảnh preview */
     var resultImageEl = document.getElementById("result-image");
     if (resultImageEl) resultImageEl.classList.remove("visible");
 
-    /* 2. Chuyển btn-download sang video mode */
-    faceswapState.downloadMode = "video";
-    var btnDownload = document.getElementById("btn-download");
-    if (btnDownload) btnDownload.textContent = "TẢI VIDEO";
+    st.downloadMode = "video";
+    st.currentVideoUrl = st.videoUrl;
 
-    /* 3. Hiện #result-video + autoplay */
+    var btnDownload = document.getElementById("btn-download");
+    if (btnDownload) {
+      btnDownload.textContent = "TẢI VIDEO";
+      btnDownload.disabled = false;
+    }
+
     var resultVideoEl = document.getElementById("result-video");
     if (resultVideoEl) {
       resultVideoEl.classList.remove("video-section-hidden");
-      var vid = resultVideoEl.querySelector("video.elementor-video")
-             || resultVideoEl.querySelector("video");
+
+      var vid = resultVideoEl.querySelector("video.elementor-video") ||
+                resultVideoEl.querySelector("video");
+
       if (vid) {
-        vid.classList.remove("video-hidden");
-        vid.classList.add("video-visible");
-        if (vid.src !== targetVideoUrl) {
-          vid.src = targetVideoUrl;
+        if (st.videoUrl && vid.src !== st.videoUrl) {
+          vid.src = st.videoUrl;
           vid.load();
         }
+        vid.classList.remove("video-hidden");
+        vid.classList.add("video-visible");
         vid.play().catch(function () {});
       }
-    }
 
-    /* 4. Ẩn button này sau khi click */
-    localHide();
-
-    /* 5. Ẩn video-status-hint nếu có */
-    var hint = document.getElementById("video-status-hint");
-    if (hint) hint.style.display = "none";
-
-    /* 6. Scroll mượt đến video */
-    if (resultVideoEl) {
       resultVideoEl.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-  });
 
-  /* ============================================================
-     BRIDGE — Đồng bộ với frontend_script.html qua DOM events
-     frontend_script.html phát events để TẤT CẢ các beerBtn biết
-     khi nào cần chuyển trạng thái (giải quyết triệt để lỗi duplicate widget Desktop/Mobile)
-  ============================================================ */
-  document.addEventListener("beerBtn:reset",    localReset);
-  document.addEventListener("beerBtn:complete", localComplete);
-  document.addEventListener("beerBtn:error",    localError);
-  document.addEventListener("beerBtn:hide",     localHide);
-  document.addEventListener("beerBtn:show",     localShow);
+    window.beerBtnHide();
 
-  /* ============================================================
-     AUTO-SYNC với DOM (interval bridge nếu không dùng events)
-     Quan sát window.faceswapState để tự cập nhật trạng thái
-  ============================================================ */
-  var _syncInterval = setInterval(function () {
+    var hint = document.getElementById("video-status-hint");
+    if (hint) hint.style.display = "none";
+  }
+
+  function initBeerButton() {
+    if (_initialized) return;
+    if (!findElements()) return;
+
+    _initialized = true;
+    _makeBubbles();
+
+    shell.addEventListener("click", showVideoFromState);
+
+    // Nếu frontend set state trước khi nút init xong, sync UI lại tại đây.
+    if (_isReady || (window.faceswapState && window.faceswapState.videoUrl)) {
+      _isReady = true;
+      _isError = false;
+      _applyReadyUI();
+    } else if (_isError) {
+      _applyErrorUI();
+    } else {
+      _startProgress();
+    }
+  }
+
+  window.beerBtnReset = function () {
+    _isReady = false;
+    _isError = false;
+    if (!findElements()) return;
+    _startProgress();
+  };
+
+  window.beerBtnComplete = function () {
+    _isReady = true;
+    _isError = false;
+    _applyReadyUI();
+  };
+
+  window.beerBtnError = function () {
+    _isReady = false;
+    _isError = true;
+    _applyErrorUI();
+  };
+
+  window.beerBtnHide = function () {
+    if (!findElements()) return;
+    if (shell) shell.classList.add("is-hidden");
+  };
+
+  window.beerBtnShow = function () {
+    if (!findElements()) return;
+    if (shell) shell.classList.remove("is-hidden");
+  };
+
+  document.addEventListener("beerBtn:reset", window.beerBtnReset);
+  document.addEventListener("beerBtn:complete", window.beerBtnComplete);
+  document.addEventListener("beerBtn:error", window.beerBtnError);
+  document.addEventListener("beerBtn:hide", window.beerBtnHide);
+
+  var pollAttempts = 0;
+  var initPoll = setInterval(function () {
+    pollAttempts++;
+    if (findElements()) {
+      clearInterval(initPoll);
+      initBeerButton();
+    }
+    if (pollAttempts > 50) clearInterval(initPoll);
+  }, 200);
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initBeerButton);
+  } else {
+    initBeerButton();
+  }
+  window.addEventListener("load", initBeerButton);
+
+  // Auto-sync nếu frontend set videoUrl nhưng chưa gọi được beerBtnComplete.
+  setInterval(function () {
     var st = window.faceswapState;
-    if (!st) return;
-
-    // Nếu videoUrl hoặc currentVideoUrl vừa được set (backend trả về video) → chuyển sang ready
-    if ((st.videoUrl || st.currentVideoUrl) && !_isReady && !_isError) {
-      localComplete();
+    if (st && st.videoUrl && !_isReady && !_isError) {
+      window.beerBtnComplete();
     }
   }, 500);
-
-  /* ---- Auto-start on page load ---- */
-  _startProgress();
-
 })();
 </script>
