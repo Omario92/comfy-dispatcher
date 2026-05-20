@@ -404,6 +404,7 @@
       downloadMode: "image",   // "image" | "video" — quyết định btn-download tải gì
       videoLoadingAnimInterval: null,
     };
+    window.faceswapState = state;
 
     async function getFreshNonce() {
       try {
@@ -908,8 +909,9 @@
       state.imageResult = null;
       state.videoUrl = null;
       state.downloadMode = "image";   // reset về image mode
-      // Reset btn-get-video for next session
-      if (DOM.btnGetVideo) {
+      // Reset btn-video-loading beer button
+      if (window.beerBtnReset) window.beerBtnReset();
+      else if (DOM.btnGetVideo) {
         DOM.btnGetVideo.disabled = true;
         DOM.btnGetVideo.style.display = "";
         DOM.btnGetVideo.classList.remove("video-ready");
@@ -1118,10 +1120,13 @@
         videoEl.load();
       }
 
-      // Enable the "Lấy Video" button once browser reports canplay or after 4s
+      // Enable beer button once browser reports canplay or after 4s
       const enableBtn = () => {
-        stopVideoLoadingAnimation();  // ← Dừng animation khi video sẵn sàng
-        if (DOM.btnGetVideo) {
+        stopVideoLoadingAnimation();
+        // Ưu tiên beerBtn API (btn-video-loading.html)
+        if (window.beerBtnComplete) {
+          window.beerBtnComplete();
+        } else if (DOM.btnGetVideo) {
           DOM.btnGetVideo.disabled = false;
           DOM.btnGetVideo.textContent = "LẤY VIDEO ĐẦY ĐỦ";
           DOM.btnGetVideo.classList.add("video-ready");
@@ -1286,7 +1291,10 @@
               .catch(err => {
                 console.warn("[video poll] failed:", err.message);
                 stopVideoLoadingAnimation();
-                if (DOM.btnGetVideo) {
+                // Báo lỗi cho beer button
+                if (window.beerBtnError) {
+                  window.beerBtnError();
+                } else if (DOM.btnGetVideo) {
                   DOM.btnGetVideo.textContent = "VIDEO KHÔNG KHẢ DỤNG";
                 }
                 if (DOM.videoStatusHint) DOM.videoStatusHint.textContent = "Video không khả dụng.";
@@ -1320,19 +1328,18 @@
       });
     }
 
-    /* ── Nút "Lấy Video": hiện video section + autoplay ── */
+    /* ── Nút "Lấy Video": hiện video section + autoplay ──
+       Logic đã được chuyển sang btn-video-loading.html (beerBtn click handler)
+       Giữ lại fallback cho DOM.btnGetVideo truyền thống nếu beer button không load
+    ── */
     if (DOM.btnGetVideo) {
       DOM.btnGetVideo.addEventListener("click", () => {
         if (!state.videoUrl) return;
 
-        // Ẩn ảnh preview để video không bị che khuất (cả 2 đều absolute)
         if (DOM.resultImage) DOM.resultImage.classList.remove("visible");
-
-        // Chuyển btn-download sang chế độ video
         state.downloadMode = "video";
         if (DOM.btnDownload) DOM.btnDownload.textContent = "TẢI VIDEO";
 
-        // Hiện video section
         if (DOM.resultVideo) {
           DOM.resultVideo.classList.remove("video-section-hidden");
           const videoEl = DOM.resultVideo.querySelector("video.elementor-video");
@@ -1343,11 +1350,8 @@
           }
         }
 
-        // Ẩn nút + hint
         DOM.btnGetVideo.style.display = "none";
         if (DOM.videoStatusHint) DOM.videoStatusHint.style.display = "none";
-
-        // Scroll mượt đến video
         DOM.resultVideo?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     }

@@ -57,6 +57,8 @@
 - [2026-05-20] Rate Limiting (Dual-Layer): Triển khai cơ chế giới hạn tần suất tạo job IP-based (tối đa 5 lượt/5 phút). Phía PHP Proxy (lh-faceswap-proxy.php) sử dụng WordPress transients (sliding window) chặn spam ngay từ WordPress và truyền user_ip sang n8n; Phía Dispatcher (src/main.py) sử dụng Redis ZSET sliding window tự bảo vệ API; Viết kịch bản test scratch/test_rate_limit.py để tự động xác minh.
 - [2026-05-20] Removed Facebook Share: Gỡ bỏ tính năng chia sẻ Facebook (nút btn-share, FB SDK loader và hàm handleShare) khỏi frontend_script.html theo yêu cầu.
 - [2026-05-20] New Share Script: Tạo tệp share_script.html độc lập chứa tính năng chia sẻ Zalo & Facebook hiện đại, tự động trích xuất ảnh/video từ DOM để chia sẻ thông qua Web Share API hoặc Menu Popup thủ công.
+- [2026-05-20] Robust Media Sharing: Cập nhật cơ chế trích xuất ảnh/video trong nút btn-share (share_script.html) để truy xuất dữ liệu trực tiếp từ global state (window.faceswapState) thay vì DOM. Thêm validation chặn chia sẻ và hiển thị thông báo toast khi chưa tạo xong ảnh/video, loại bỏ hoàn toàn việc chia sẻ nhầm file tạm/preview (base64/blob).
+- [2026-05-20] Dynamic Scaling & GPU Provisioning: Triển khai PAUSE_TIMEOUT_SEC động theo peak/off-peak (thời gian cao điểm 18h-23h tự động kéo dài lên 1800s); Bổ sung GPU RTX PRO 4500 (RTX 4500 Ada Generation) vào cấu hình hoạt động hiệu quả cho cả Image/Video, đồng thời xếp L40S xuống vị trí dự phòng cuối cùng khi cạn kiệt tài nguyên.
 
 
 

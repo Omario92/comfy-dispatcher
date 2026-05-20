@@ -65,11 +65,38 @@
 
     /* ================== LẤY MEDIA TỪ DOM ================== */
     function getResultMedia() {
-      const imgEl = document.querySelector("#result-image img");
-      const videoEl = document.querySelector("#result-video video");
+      // 1. First priority: Check the global state to get exactly the finished swapped files
+      if (window.faceswapState) {
+        const stateImage = window.faceswapState.imageResult ? (window.faceswapState.imageResult.image_url || window.faceswapState.imageResult.preview_url) : null;
+        const stateVideo = window.faceswapState.videoUrl || window.faceswapState.currentVideoUrl;
+        
+        // Ensure we don't return temporary / invalid URLs from the state
+        const validImage = (stateImage && !stateImage.startsWith("data:") && !stateImage.startsWith("blob:")) ? stateImage : null;
+        const validVideo = (stateVideo && !stateVideo.startsWith("data:") && !stateVideo.startsWith("blob:")) ? stateVideo : null;
+        
+        return {
+          imageUrl: validImage || null,
+          videoUrl: validVideo || null
+        };
+      }
+
+      // 2. Fallback: If global state is not exposed, scrape the DOM but ensure the elements are actually visible/ready,
+      // avoiding any temporary, placeholder, or data/blob files before the swap completes.
+      const imgEl = document.querySelector("#result-image .elementor-widget-container img") || 
+                    document.querySelector("#result-image img");
+      const videoEl = document.querySelector("#result-video video.elementor-video") || 
+                      document.querySelector("#result-video video") ||
+                      document.querySelector("#result-video video.elementor-html5-video");
+      
+      const isImageVisible = document.querySelector("#result-image")?.classList.contains("visible");
+      const isVideoReady = videoEl && videoEl.src && !document.querySelector("#result-video")?.classList.contains("video-section-hidden");
+
+      const imageUrl = (isImageVisible && imgEl && imgEl.src && !imgEl.src.startsWith("data:") && !imgEl.src.startsWith("blob:")) ? imgEl.src : null;
+      const videoUrl = (isVideoReady && videoEl && videoEl.src && !videoEl.src.startsWith("data:") && !videoEl.src.startsWith("blob:")) ? videoEl.src : null;
+
       return {
-        imageUrl: imgEl ? imgEl.src : null,
-        videoUrl: videoEl ? videoEl.src : null
+        imageUrl,
+        videoUrl
       };
     }
 
@@ -168,6 +195,12 @@
 
     /* ================== SHARE HANDLER CHÍNH ================== */
     async function handleShare() {
+      const { imageUrl, videoUrl } = getResultMedia();
+      if (!imageUrl && !videoUrl) {
+        showToast("Vui lòng đợi quá trình tạo ảnh/video hoàn tất để chia sẻ!");
+        return;
+      }
+
       const { isMobile, isInAppBrowser } = detectEnv();
 
       // ===== MOBILE: ưu tiên Web Share API kèm FILE =====

@@ -116,7 +116,7 @@ async def _tick():
             await scale_up()
 
     # ---- 2-phase scale down idle workers ----
-    await _scale_down_two_phase(counts, min_workers)
+    await _scale_down_two_phase(counts, min_workers, pause_timeout=idle_timeout)
 
 
 async def scale_up(worker_type: str = "any") -> dict | None:
@@ -149,10 +149,10 @@ async def scale_up(worker_type: str = "any") -> dict | None:
         return None
 
 
-async def _scale_down_two_phase(counts: dict, min_workers: int):
+async def _scale_down_two_phase(counts: dict, min_workers: int, pause_timeout: int | None = None):
     """
     2-phase idle lifecycle:
-      Phase 1: idle > PAUSE_TIMEOUT_SEC  → podStop (giải phóng GPU, giữ /workspace)
+      Phase 1: idle > pause_timeout  → podStop (giải phóng GPU, giữ /workspace)
       Phase 2: idle > TERMINATE_TIMEOUT_SEC → podTerminate (xóa hẳn)
     """
     # Tính tổng pod "active" (không kể stopped) để so min_workers
@@ -162,6 +162,7 @@ async def _scale_down_two_phase(counts: dict, min_workers: int):
 
     now = int(time.time())
     workers = await pool.list_workers()
+    p_timeout = pause_timeout if pause_timeout is not None else settings.PAUSE_TIMEOUT_SEC
 
     for w in workers:
         status = w.get("status")
@@ -193,11 +194,11 @@ async def _scale_down_two_phase(counts: dict, min_workers: int):
                 except Exception as e:
                     logger.error(f"[autoscale] terminate failed: {e}")
 
-            elif idle_sec > settings.PAUSE_TIMEOUT_SEC:
+            elif idle_sec > p_timeout:
                 # Phase 1: idle vừa đủ → stop pod (giữ /workspace)
                 logger.info(
                     f"[autoscale] STOP (pause) → {pod_id} "
-                    f"(idle {idle_sec}s > pause_timeout {settings.PAUSE_TIMEOUT_SEC}s)"
+                    f"(idle {idle_sec}s > pause_timeout {p_timeout}s)"
                 )
                 try:
                     ok = await runpod.stop_pod(pod_id)
