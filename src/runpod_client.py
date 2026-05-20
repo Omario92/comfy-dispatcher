@@ -15,7 +15,7 @@ class RunPodClient:
         }
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
-    async def create_pod(self, name: str) -> dict:
+    async def create_pod(self, name: str, gpu_types_override: list[str] | None = None) -> dict:
         query = """
         mutation CreatePod($input: PodFindAndDeployOnDemandInput!) {
           podFindAndDeployOnDemand(input: $input) {
@@ -25,7 +25,10 @@ class RunPodClient:
           }
         }
         """
-        gpu_types = [g.strip() for g in settings.RUNPOD_GPU_TYPE.split(",") if g.strip()]
+        # gpu_types_override cho phép scale_up() truyền list GPU khác nhau theo worker_type
+        gpu_types = gpu_types_override if gpu_types_override else [
+            g.strip() for g in settings.RUNPOD_GPU_TYPE.split(",") if g.strip()
+        ]
         last_error = "No valid GPU types provided"
 
         # Ưu tiên cloud type từ config (đang test: COMMUNITY, production: SECURE)

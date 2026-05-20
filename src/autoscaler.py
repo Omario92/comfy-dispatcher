@@ -11,6 +11,13 @@ from config import settings
 # Vietnam = UTC+7
 _VN_TZ = timezone(timedelta(hours=7))
 
+# GPUs bị cấm dùng cho IMAGE worker
+# (hiệu năng image gen không xứng chi phí, dành ưu tiên cho video)
+_IMAGE_BLOCKED_GPUS: frozenset[str] = frozenset({
+    "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+})
+
 
 def peak_hours_status() -> tuple[bool, int, int]:
     """
@@ -124,8 +131,8 @@ async def scale_up(worker_type: str = "any") -> dict | None:
     Tạo pod mới trên RunPod.
 
     worker_type:
-      - "image" → pod đặt tên prefix "image-worker-"
-      - "video" → pod đặt tên prefix "video-worker-"
+      - "image" → pod đặt tên prefix "image-worker-", lọc bỏ GPU trong _IMAGE_BLOCKED_GPUS
+      - "video" → pod đặt tên prefix "video-worker-" (dùng toàn bộ RUNPOD_GPU_TYPE)
       - "any"   → pod đặt tên prefix "comfy-worker-" (backward-compat)
     """
     prefix_map = {
@@ -136,9 +143,23 @@ async def scale_up(worker_type: str = "any") -> dict | None:
     prefix = prefix_map.get(worker_type, "comfy-worker")
     name = f"{prefix}-{uuid.uuid4().hex[:8]}"
 
-    logger.info(f"[autoscale] SCALE UP → creating {name} (worker_type={worker_type})")
+    # Xây dựng danh sách GPU phù hợp với worker_type
+    all_gpus = [g.strip() for g in settings.RUNPOD_GPU_TYPE.split(",") if g.strip()]
+    if worker_type == "image":
+        gpu_list = [g for g in all_gpus if g not in _IMAGE_BLOCKED_GPUS]
+        if len(gpu_list) < len(all_gpus):
+            blocked = [g for g in all_gpus if g in _IMAGE_BLOCKED_GPUS]
+            logger.info(f"[autoscale] IMAGE worker: Ẩn {len(blocked)} GPU (RTX PRO 6000): {blocked}")
+    else:
+        gpu_list = all_gpus
+
+    if not gpu_list:
+        logger.error(f"[autoscale] scale_up({worker_type}): không còn GPU hợp lệ sau khi lọc!")
+        return None
+
+    logger.info(f"[autoscale] SCALE UP → creating {name} (worker_type={worker_type}) GPU list: {gpu_list}")
     try:
-        pod = await runpod.create_pod(name)
+        pod = await runpod.create_pod(name, gpu_types_override=gpu_list)
         pod_id = pod["id"]
         logger.info(f"[autoscale] created pod {pod_id} name={name} (status={pod.get('desiredStatus')})")
         # Ghi ngay vào registry với status=booting + worker_type

@@ -327,12 +327,24 @@ async def warmup_vip(req: WarmupReq):
     Autoscaler sẽ KHÔNG tắt các pod này trong thời gian được ghim.
     Dùng trước khi mở đợt traffic lớn (demo / ra mắt / giờ cao điểm).
     """
+    from autoscaler import _IMAGE_BLOCKED_GPUS
+
     pinned_until = int(time.time()) + int(req.duration_hours * 3600)
     expires_at = time.strftime("%H:%M:%S %d/%m/%Y", time.localtime(pinned_until))
 
-    original_gpu = settings.RUNPOD_GPU_TYPE
+    # Lọc GPU theo worker_type: image worker không được dùng RTX PRO 6000
+    gpu_list = req.gpu_types
+    if req.worker_type == "image":
+        filtered = [g for g in gpu_list if g not in _IMAGE_BLOCKED_GPUS]
+        if len(filtered) < len(gpu_list):
+            removed = [g for g in gpu_list if g in _IMAGE_BLOCKED_GPUS]
+            logger.info(f"[warmup] IMAGE worker: loại {len(removed)} GPU khỏi danh sách: {removed}")
+        gpu_list = filtered
+
+    if not gpu_list:
+        raise HTTPException(status_code=400, detail="Không còn GPU hợp lệ sau khi lọc cho image worker")
+
     original_cloud = settings.RUNPOD_CLOUD_TYPE
-    settings.RUNPOD_GPU_TYPE = ",".join(req.gpu_types)
     settings.RUNPOD_CLOUD_TYPE = req.cloud_type.upper()
 
     created = []
@@ -344,7 +356,10 @@ async def warmup_vip(req: WarmupReq):
         last_err = "unknown"
         for attempt in range(1, MAX_RETRIES + 1):
             try:
-                pod = await runpod.create_pod(f"comfy-vip-{uuid.uuid4().hex[:8]}")
+                pod = await runpod.create_pod(
+                    f"comfy-vip-{uuid.uuid4().hex[:8]}",
+                    gpu_types_override=gpu_list,
+                )
                 pod_id = pod["id"]
                 await pool.mark_booting(pod_id, worker_type=req.worker_type)
                 await pool._update(pod_id, pinned_until=pinned_until)
@@ -366,7 +381,6 @@ async def warmup_vip(req: WarmupReq):
             logger.error(f"[warmup] pod #{i+1} FAILED after {MAX_RETRIES} attempts: {last_err}")
             failed.append(f"Pod #{i+1}: {last_err}")
 
-    settings.RUNPOD_GPU_TYPE = original_gpu
     settings.RUNPOD_CLOUD_TYPE = original_cloud
 
     return {
