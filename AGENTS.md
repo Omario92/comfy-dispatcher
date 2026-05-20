@@ -56,6 +56,7 @@
 - [2026-05-19] Total Cleanup: Safely terminated ALL 10 active and legacy pods on RunPod and completely cleared the Redis worker registry via custom script `scratch/terminate_all_pods.py` to prevent resource leaks and reset state.
 - [2026-05-20] Rate Limiting (Dual-Layer): Triển khai cơ chế giới hạn tần suất tạo job IP-based (tối đa 5 lượt/5 phút). Phía PHP Proxy (lh-faceswap-proxy.php) sử dụng WordPress transients (sliding window) chặn spam ngay từ WordPress và truyền user_ip sang n8n; Phía Dispatcher (src/main.py) sử dụng Redis ZSET sliding window tự bảo vệ API; Viết kịch bản test scratch/test_rate_limit.py để tự động xác minh.
 - [2026-05-20] Removed Facebook Share: Gỡ bỏ tính năng chia sẻ Facebook (nút btn-share, FB SDK loader và hàm handleShare) khỏi frontend_script.html theo yêu cầu.
+- [2026-05-20] New Share Script: Tạo tệp share_script.html độc lập chứa tính năng chia sẻ Zalo & Facebook hiện đại, tự động trích xuất ảnh/video từ DOM để chia sẻ thông qua Web Share API hoặc Menu Popup thủ công.
 
 
 
