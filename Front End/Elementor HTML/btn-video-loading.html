@@ -134,6 +134,11 @@
     letter-spacing: 0.6px;
     color: #1f1d53;
     text-align: center;
+    /* Căn giữa dọc chính xác khi có sprite inline */
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    line-height: 1;
 
     text-shadow:
       0 1px 0 rgba(255,255,255,0.65),
@@ -149,22 +154,22 @@
      SPRITE RUN ANIMATION
      Sprite sheet: 8 cols × 7 rows = 56 frames
      Each frame: 128×128px → sheet total: 1024×896px
+     Target speed: ~10fps → 0.8s / 8 cols
   ============================ */
 
-  /* Wrapper — chiếm khoảng ngang bên phải label, không ảnh hưởng layout */
+  /* Wrapper — inline-flex canh giữa dọc với text */
   .beer-btn-sprite-wrap {
     display: inline-flex;
     align-items: center;
-    /* Không margin-left âm để tránh overflow clip */
-    margin-left: 2px;
-    /* Clip overflow để sprite không tràn ra ngoài button */
-    overflow: visible;
-    /* Chiều cao khớp với button desktop */
+    justify-content: center;
+    /* Chiều cao/rộng bằng button height desktop, canh giữa dọc */
     height: 52px;
-    /* Chiều rộng = chiều cao (sprite vuông sau scale) */
     width: 52px;
     flex-shrink: 0;
+    /* vertical-align để không đẩy baseline text xuống */
+    vertical-align: middle;
     position: relative;
+    overflow: hidden;
   }
 
   .beer-btn-sprite {
@@ -175,18 +180,19 @@
     background-repeat: no-repeat;
     /* Sheet size: 8 cols × 128 = 1024px, 7 rows × 128 = 896px */
     background-size: 1024px 896px;
-    /* Scale xuống để vừa button (128 → ~52px = 0.406) */
+    /* Scale xuống để vừa wrapper 52px (128 × 0.406 ≈ 52px) */
     transform: scale(0.406);
     transform-origin: top left;
     position: absolute;
     top: 0;
     left: 0;
+    /* ~10fps: 8 frames × 100ms = 0.8s mỗi hàng */
     animation:
-      sprite-col 0.133s steps(8, end) infinite,
-      sprite-row 0.933s steps(1, end) infinite;
+      sprite-col 0.8s steps(8, end) infinite,
+      sprite-row 5.6s steps(1, end) infinite;
   }
 
-  /* Mobile: button cao 48px → scale nhỏ hơn (128 → ~44px = 0.344) */
+  /* Mobile: button cao 48px → scale 128→44px = 0.344 */
   @media (max-width: 480px) {
     .beer-btn-sprite-wrap {
       height: 44px;
