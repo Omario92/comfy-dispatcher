@@ -640,8 +640,14 @@ async def worker_done(req: DoneReq):
 async def check_rate_limit(redis_conn, identifier: str, max_requests: int = 5, window_sec: int = 300) -> Optional[int]:
     """
     Checks rate limiting using a Redis Sorted Set (sliding window).
+    Allows a burst of parallel requests within 3 seconds (e.g. image & video job pairs)
+    to pass through as a single generation, preventing dual-job quota mismatch.
     Returns None if allowed, or the remaining wait time in seconds if rate-limited.
     """
+    burst_key = f"rate_limit_burst:{identifier}"
+    if await redis_conn.exists(burst_key):
+        return None
+
     key = f"rate_limit:{identifier}"
     now = time.time()
     clear_before = now - window_sec
@@ -674,7 +680,10 @@ async def check_rate_limit(redis_conn, identifier: str, max_requests: int = 5, w
             return max(1, wait_sec)
         return window_sec
 
+    # Set burst key for 3 seconds to group subsequent parallel requests
+    await redis_conn.setex(burst_key, 3, "1")
     return None
+
 
 
 # ============ JOB SUBMISSION ============

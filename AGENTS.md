@@ -11,6 +11,8 @@
 - `/push-code`: Push current changes to git repository.
 
 ## Recent Changes
+- [2026-05-20] Tối ưu hóa Ẩn Nút Bia & Shadow v4.2: (1) Tích hợp logic tìm và ẩn hoàn toàn element `.elementor-widget` cha gần nhất của `#btn-video-loading` bằng `display: none !important` ngay khi bấm vào xem video; (2) Thay thế box-shadow thô của nút loading bằng bóng đổ nhẹ góc phải dưới tinh tế, chỉ kích hoạt glow pulse màu vàng bia khi video sẵn sàng. Giúp triệt tiêu 100% khoảng trống layout Elementor và đem lại giao diện mượt mà.
+- [2026-05-20] Tối giản hóa Visual Nút Bia v4.1: Loại bỏ hoàn toàn các lớp trung gian (`beer-btn-fill`, `beer-btn-track`, `beer-bubbles`) và các viền rườm rà. Nút loading bia giờ chỉ cấu tạo tinh khiết từ đúng 2 ảnh WebP (`BEER_BAR.webp` làm nền shell và `BEER_BAR_2.webp` làm ruột bia) kết hợp kỹ thuật CSS `clip-path` progress hiện đại dựa trên biến `--beer-progress` được điều khiển bởi Javascript. Mang lại giao diện mượt mà, tinh khiết, đồng bộ hoàn hảo trên cả Mobile và Desktop.
 - [2026-05-12] Setup Dispatcher Service trên Railway với FastAPI, Redis và RunPod API integration (Giai đoạn 6).
 - [2026-05-13] Refactor async job flow: POST /jobs tự sinh job_id và trả ngay về n8n, background pipeline (job_processor.py) xử lý pod → ComfyUI → R2 → callback. Thêm comfy_client.py (submit/poll ComfyUI), r2_uploader.py (upload boto3). n8n chỉ cần gửi full workflow JSON đã inject image_url + callback_url.
 - [2026-05-13] Bugfix series: (1) health loop không được kill busy pod đang render; (2) mark pod busy ngay lập tức sau khi acquire để tránh race condition với autoscaler; (3) health loop không được reset last_active của idle pod — lỗi này khiến autoscaler idle timeout không bao giờ trigger; (4) thêm R2 credential validation rõ ràng.

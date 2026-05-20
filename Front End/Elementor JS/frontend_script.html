@@ -310,6 +310,200 @@
       }
       .intro-caption { margin-top: 22px; font-size: clamp(14px, 4vw, 18px); }
     }
+
+    /* Premium Glassmorphism Rate Limit Modal */
+    .fs-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(8, 12, 22, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 100000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      font-family: 'Inter', 'Outfit', sans-serif;
+    }
+    .fs-modal-overlay.show {
+      opacity: 1;
+    }
+    .fs-modal-container {
+      width: min(520px, 92vw);
+      background: linear-gradient(135deg, rgba(26, 31, 46, 0.85) 0%, rgba(13, 17, 26, 0.95) 100%);
+      border: 1px solid rgba(224, 184, 64, 0.35);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 
+                  0 0 40px rgba(224, 184, 64, 0.15) inset;
+      border-radius: 24px;
+      padding: 36px 28px;
+      text-align: center;
+      transform: scale(0.9);
+      opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .fs-modal-overlay.show .fs-modal-container {
+      transform: scale(1);
+      opacity: 1;
+    }
+    .fs-modal-container::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(244, 216, 119, 0.08) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .fs-modal-content {
+      position: relative;
+      z-index: 1;
+    }
+    .fs-modal-icon-wrapper {
+      margin-bottom: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 80px;
+      height: 80px;
+      background: rgba(224, 184, 64, 0.1);
+      border: 1.5px dashed rgba(224, 184, 64, 0.5);
+      border-radius: 50%;
+      color: #ffd700;
+      animation: rotateHourglass 4s ease-in-out infinite;
+    }
+    @keyframes rotateHourglass {
+      0%, 90% { transform: rotate(0deg); }
+      45%, 55% { transform: rotate(180deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .fs-modal-icon {
+      font-size: 38px;
+      filter: drop-shadow(0 0 10px rgba(244, 216, 119, 0.6));
+    }
+    .fs-modal-title {
+      font-size: clamp(20px, 4vw, 24px);
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      background: linear-gradient(90deg, #fff, #ffd700, #fff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .fs-modal-message {
+      font-size: clamp(14px, 3.2vw, 15px);
+      color: rgba(255, 255, 255, 0.8);
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+    .fs-countdown-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .fs-countdown-box {
+      min-width: 75px;
+      background: rgba(13, 17, 26, 0.8);
+      border: 1px solid rgba(224, 184, 64, 0.2);
+      border-radius: 12px;
+      padding: 12px 6px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .fs-countdown-value {
+      font-size: 28px;
+      font-weight: 800;
+      color: #ffd700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+      text-shadow: 0 0 8px rgba(224, 184, 64, 0.4);
+    }
+    .fs-countdown-label {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.5);
+      text-transform: uppercase;
+      margin-top: 4px;
+      letter-spacing: 0.5px;
+    }
+    .fs-countdown-separator {
+      font-size: 28px;
+      font-weight: 800;
+      color: rgba(224, 184, 64, 0.6);
+      animation: flashColon 1s infinite;
+    }
+    @keyframes flashColon {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .fs-modal-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    @media (min-width: 480px) {
+      .fs-modal-actions {
+        flex-direction: row;
+        justify-content: center;
+      }
+    }
+    .fs-btn-wait {
+      flex: 1;
+      padding: 14px 24px;
+      background: linear-gradient(135deg, #ffd700 0%, #c68922 100%);
+      color: #0d111a;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(198, 137, 34, 0.4);
+      transition: all 0.3s ease;
+      outline: none;
+    }
+    .fs-btn-wait:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(198, 137, 34, 0.6);
+      filter: brightness(1.1);
+    }
+    .fs-btn-wait:active {
+      transform: translateY(1px);
+    }
+    .fs-btn-home {
+      flex: 1;
+      padding: 14px 24px;
+      background: transparent;
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      outline: none;
+    }
+    .fs-btn-home:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.5);
+      transform: translateY(-2px);
+    }
+    .fs-btn-home:active {
+      transform: translateY(1px);
+    }
   `;
     document.head.appendChild(styleEl);
 
@@ -386,8 +580,8 @@
       }
       return null;
     }
-    const INTRO_CAPTION_LINE_1 = "Trên bàn bia thường có các Anh Tài này,";
-    const INTRO_CAPTION_LINE_2 = "cùng chờ xem bạn là Anh Tài nào?";
+    const INTRO_CAPTION_LINE_1 = "Bàn bia nào cũng có những Anh Tài khó đỡ";
+    const INTRO_CAPTION_LINE_2 = "Để voi HALIDA soi xem bạn là Anh Tài kiểu gì?";
 
 
     /* ============================================================
@@ -744,37 +938,139 @@
 
 
     /* ============================================================
-       VIDEO LOADING TEXT ANIMATION
-       Tạo hiệu ứng đánh chữ: "VIDEO ĐANG TẠO" → "." → ".." → "..." → "..." etc.
+       BEER BUTTON CONTROLLER (v4.0)
+       Thay thế hoàn toàn #btn-get-video truyền thống bằng Beer Loading Button
+       Sử dụng CSS variable --beer-progress điều khiển qua clip-path mask.
     ============================================================ */
-    function startVideoLoadingAnimation() {
-      if (!DOM.btnGetVideo) return;
-      // Dừng animation cũ (nếu có) để tránh chạy chồng
-      stopVideoLoadingAnimation();
+    let beerFillInterval = null;
+    let currentFillWidth = 8;
 
-      const baseText = "VIDEO ĐANG TẠO";
-      const dotStates = [".", "..", "...", "....", ".....", "....", "...", "..", "."];
-      let i = 0;
+    window.beerBtnReset = function() {
+      if (beerFillInterval) {
+        clearInterval(beerFillInterval);
+        beerFillInterval = null;
+      }
+      currentFillWidth = 8;
+      
+      const shells = document.querySelectorAll(".beer-btn-shell");
+      shells.forEach(shell => {
+        shell.classList.remove("is-ready", "is-error", "is-hidden");
+        shell.style.display = ""; // Khôi phục display
+        shell.style.setProperty('--beer-progress', '8%');
 
-      // Set ngay frame đầu để không bị delay 400ms
-      DOM.btnGetVideo.textContent = baseText + dotStates[0];
-      i = 1;
-
-      state.videoLoadingAnimInterval = setInterval(() => {
-        if (!DOM.btnGetVideo) {
-          stopVideoLoadingAnimation();
-          return;
+        const labelSpan = shell.querySelector(".beer-btn-label span");
+        if (labelSpan) {
+          labelSpan.innerHTML = `Video Đang Được Tạo<span class="beer-btn-dots"><i></i><i></i><i></i></span><i class="beer-btn-check">✓</i>`;
         }
-        DOM.btnGetVideo.textContent = baseText + dotStates[i];
-        i = (i + 1) % dotStates.length;
-      }, 400); // 400ms mỗi frame — đủ nhanh để mượt, đủ chậm để đọc được
+      });
+
+      const wrappers = document.querySelectorAll("#btn-video-loading");
+      wrappers.forEach(w => {
+        w.style.display = "";
+        const widget = w.closest(".elementor-widget");
+        if (widget) {
+          widget.style.display = "";
+        }
+      });
+
+      // Tăng fill giả lập từ 8% đến 90% trong 90s (1.5 phút)
+      const targetWidth = 90;
+      const durationSeconds = 90;
+      const step = (targetWidth - 8) / durationSeconds;
+      
+      beerFillInterval = setInterval(() => {
+        if (currentFillWidth < targetWidth) {
+          currentFillWidth += step;
+          if (currentFillWidth > targetWidth) currentFillWidth = targetWidth;
+          document.querySelectorAll(".beer-btn-shell").forEach(shell => {
+            shell.style.setProperty('--beer-progress', currentFillWidth + '%');
+          });
+        } else {
+          clearInterval(beerFillInterval);
+          beerFillInterval = null;
+        }
+      }, 1000);
+    };
+
+    window.beerBtnComplete = function() {
+      if (beerFillInterval) {
+        clearInterval(beerFillInterval);
+        beerFillInterval = null;
+      }
+      
+      const shells = document.querySelectorAll(".beer-btn-shell");
+      shells.forEach(shell => {
+        shell.classList.add("is-ready");
+        shell.classList.remove("is-error", "is-hidden");
+        shell.style.display = "";
+        shell.style.setProperty('--beer-progress', '100%');
+
+        const labelSpan = shell.querySelector(".beer-btn-label span");
+        if (labelSpan) {
+          labelSpan.innerHTML = `Video Đã Sẵn Sàng<i class="beer-btn-check">✓</i>`;
+        }
+      });
+    };
+
+    window.beerBtnError = function() {
+      if (beerFillInterval) {
+        clearInterval(beerFillInterval);
+        beerFillInterval = null;
+      }
+
+      const shells = document.querySelectorAll(".beer-btn-shell");
+      shells.forEach(shell => {
+        shell.classList.add("is-error");
+        shell.classList.remove("is-ready", "is-hidden");
+        shell.style.display = "";
+        shell.style.setProperty('--beer-progress', '8%');
+
+        const labelSpan = shell.querySelector(".beer-btn-label span");
+        if (labelSpan) {
+          labelSpan.innerHTML = `Video Không Khả Dụng`;
+        }
+      });
+    };
+
+    window.beerBtnHide = function() {
+      const shells = document.querySelectorAll(".beer-btn-shell");
+      shells.forEach(shell => {
+        shell.classList.add("is-hidden");
+        shell.style.setProperty('display', 'none', 'important');
+      });
+      const wrappers = document.querySelectorAll("#btn-video-loading");
+      wrappers.forEach(w => {
+        w.style.setProperty('display', 'none', 'important');
+        const widget = w.closest(".elementor-widget");
+        if (widget) {
+          widget.style.setProperty('display', 'none', 'important');
+        }
+      });
+    };
+
+    window.beerBtnShow = function() {
+      const shells = document.querySelectorAll(".beer-btn-shell");
+      shells.forEach(shell => {
+        shell.classList.remove("is-hidden");
+        shell.style.display = "";
+      });
+      const wrappers = document.querySelectorAll("#btn-video-loading");
+      wrappers.forEach(w => {
+        w.style.display = "";
+        const widget = w.closest(".elementor-widget");
+        if (widget) {
+          widget.style.display = "";
+        }
+      });
+    };
+
+    // Tương thích ngược với các hàm cũ
+    function startVideoLoadingAnimation() {
+      window.beerBtnReset();
     }
 
     function stopVideoLoadingAnimation() {
-      if (state.videoLoadingAnimInterval) {
-        clearInterval(state.videoLoadingAnimInterval);
-        state.videoLoadingAnimInterval = null;
-      }
+      // Không cần làm gì vì complete/error sẽ tự dừng
     }
 
 
@@ -900,6 +1196,131 @@
     function syncUploadButton() {
       const ready = !!(state.selectedFile && DOM.confirmCheckbox?.checked);
       if (DOM.uploadButton) DOM.uploadButton.disabled = !ready;
+    }
+
+    function parseTimeRemaining(message) {
+      let minutes = 0;
+      let seconds = 0;
+      
+      const minMatch = message.match(/(\d+)\s*phút/);
+      const secMatch = message.match(/(\d+)\s*giây/);
+      
+      if (minMatch) {
+        minutes = parseInt(minMatch[1], 10);
+      }
+      if (secMatch) {
+        seconds = parseInt(secMatch[1], 10);
+      } else if (!minMatch && !secMatch) {
+        const numMatch = message.match(/(\d+)/g);
+        if (numMatch) {
+          if (numMatch.length >= 2) {
+            minutes = parseInt(numMatch[0], 10);
+            seconds = parseInt(numMatch[1], 10);
+          } else {
+            seconds = parseInt(numMatch[0], 10);
+          }
+        }
+      }
+      
+      const totalSeconds = (minutes * 60) + seconds;
+      return totalSeconds > 0 ? totalSeconds : 300;
+    }
+
+    function showRateLimitModal(message) {
+      const totalSeconds = parseTimeRemaining(message);
+      
+      const oldModal = document.getElementById("fs-rate-limit-modal");
+      if (oldModal) oldModal.remove();
+
+      const overlay = document.createElement("div");
+      overlay.id = "fs-rate-limit-modal";
+      overlay.className = "fs-modal-overlay";
+      
+      overlay.innerHTML = `
+        <div class="fs-modal-container">
+          <div class="fs-modal-content">
+            <div class="fs-modal-icon-wrapper">
+              <span class="fs-modal-icon">⏳</span>
+            </div>
+            <h3 class="fs-modal-title">Giới Hạn Tần Suất</h3>
+            <p class="fs-modal-message">Bạn đã đạt giới hạn 5 lượt tạo trong 5 phút.<br>Vui lòng chờ một chút để tiếp tục thưởng thức bia Halida.</p>
+            <div class="fs-countdown-wrapper">
+              <div class="fs-countdown-box">
+                <div class="fs-countdown-value" id="fs-min">00</div>
+                <div class="fs-countdown-label">Phút</div>
+              </div>
+              <div class="fs-countdown-separator">:</div>
+              <div class="fs-countdown-box">
+                <div class="fs-countdown-value" id="fs-sec">00</div>
+                <div class="fs-countdown-label">Giây</div>
+              </div>
+            </div>
+            <div class="fs-modal-actions">
+              <button class="fs-btn-wait" id="fs-btn-wait-close">Đợi một chút</button>
+              <button class="fs-btn-home" id="fs-btn-home-back">Quay lại trang chủ</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(overlay);
+      
+      const restoreUploadBtn = () => {
+        setButtonState(DOM.uploadButton, "enabled", "TẢI ẢNH LÊN");
+        syncUploadButton();
+      };
+      
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          overlay.classList.add("show");
+        });
+      });
+      
+      let timeLeft = totalSeconds;
+      const minEl = overlay.querySelector("#fs-min");
+      const secEl = overlay.querySelector("#fs-sec");
+      
+      const updateDisplay = () => {
+        const m = Math.floor(timeLeft / 60);
+        const s = timeLeft % 60;
+        if (minEl) minEl.textContent = String(m).padStart(2, "0");
+        if (secEl) secEl.textContent = String(s).padStart(2, "0");
+      };
+      
+      updateDisplay();
+      
+      const interval = setInterval(() => {
+        timeLeft--;
+        if (timeLeft <= 0) {
+          clearInterval(interval);
+          overlay.classList.remove("show");
+          setTimeout(() => {
+            overlay.remove();
+            restoreUploadBtn();
+          }, 400);
+        } else {
+          updateDisplay();
+        }
+      }, 1000);
+      
+      overlay.querySelector("#fs-btn-wait-close").addEventListener("click", () => {
+        clearInterval(interval);
+        overlay.classList.remove("show");
+        setTimeout(() => {
+          overlay.remove();
+          restoreUploadBtn();
+        }, 400);
+      });
+      
+      overlay.querySelector("#fs-btn-home-back").addEventListener("click", () => {
+        clearInterval(interval);
+        overlay.classList.remove("show");
+        setTimeout(() => {
+          overlay.remove();
+          resetUploadForm();
+          switchToStep("step-02", "back");
+        }, 400);
+      });
     }
 
     function resetUploadForm() {
@@ -1247,12 +1668,30 @@
           } finally {
             clearTimeout(checkTimer);
           }
+          if (checkRes.status === 429) {
+            let msg = "Bạn đã đạt giới hạn 5 lượt tạo trong 5 phút. Vui lòng chờ vài phút nữa để tiếp tục.";
+            try {
+              const errData = await checkRes.json();
+              const parsedData = Array.isArray(errData) ? errData[0] : errData;
+              msg = parsedData.message || parsedData.detail || parsedData.reason || msg;
+            } catch (e) {
+              console.warn("Could not parse 429 response JSON:", e);
+            }
+            showRateLimitModal(msg);
+            return;
+          }
+
           if (!checkRes.ok) throw new Error(`Check server error: ${checkRes.status}`);
           let checkResult = await checkRes.json();
           if (Array.isArray(checkResult)) checkResult = checkResult[0];
 
           if (checkResult.success !== true) {
-            alert("❌ " + (checkResult.reason || "Ảnh không phù hợp!"));
+            const reason = checkResult.reason || "Ảnh không phù hợp!";
+            if (reason.includes("giới hạn") || reason.includes("lượt") || reason.includes("chờ") || reason.includes("rate limit") || reason.includes("429")) {
+              showRateLimitModal(reason);
+              return;
+            }
+            alert("❌ " + reason);
             resetUploadForm();
             switchToStep("step-04");
             return;
@@ -1328,33 +1767,54 @@
       });
     }
 
-    /* ── Nút "Lấy Video": hiện video section + autoplay ──
-       Logic đã được chuyển sang btn-video-loading.html (beerBtn click handler)
-       Giữ lại fallback cho DOM.btnGetVideo truyền thống nếu beer button không load
-    ── */
-    if (DOM.btnGetVideo) {
-      DOM.btnGetVideo.addEventListener("click", () => {
-        if (!state.videoUrl) return;
+    /* ── Event Delegation cho nút bia (Beer Loading Button) khi ready ── */
+    document.addEventListener("click", (e) => {
+      const shell = e.target.closest(".beer-btn-shell");
+      if (!shell) return;
 
-        if (DOM.resultImage) DOM.resultImage.classList.remove("visible");
-        state.downloadMode = "video";
-        if (DOM.btnDownload) DOM.btnDownload.textContent = "TẢI VIDEO";
+      // Nếu chưa sẵn sàng (chưa có class is-ready), chặn click hoàn toàn
+      if (!shell.classList.contains("is-ready")) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
 
-        if (DOM.resultVideo) {
-          DOM.resultVideo.classList.remove("video-section-hidden");
-          const videoEl = DOM.resultVideo.querySelector("video.elementor-video");
-          if (videoEl) {
-            videoEl.classList.remove("video-hidden");
-            videoEl.classList.add("video-visible");
-            videoEl.play().catch(() => { });
-          }
+      // Khi đã sẵn sàng và có videoUrl
+      if (!state.videoUrl) return;
+
+      if (DOM.resultImage) DOM.resultImage.classList.remove("visible");
+      state.downloadMode = "video";
+      if (DOM.btnDownload) DOM.btnDownload.textContent = "TẢI VIDEO";
+
+      if (DOM.resultVideo) {
+        DOM.resultVideo.classList.remove("video-section-hidden");
+        const videoEl = DOM.resultVideo.querySelector("video.elementor-video");
+        if (videoEl) {
+          videoEl.classList.remove("video-hidden");
+          videoEl.classList.add("video-visible");
+          videoEl.play().catch(() => { });
         }
+      }
 
-        DOM.btnGetVideo.style.display = "none";
-        if (DOM.videoStatusHint) DOM.videoStatusHint.style.display = "none";
-        DOM.resultVideo?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-    }
+      if (window.beerBtnHide) {
+        window.beerBtnHide();
+      } else {
+        document.querySelectorAll(".beer-btn-shell").forEach(s => {
+          s.classList.add("is-hidden");
+          s.style.setProperty('display', 'none', 'important');
+        });
+        document.querySelectorAll("#btn-video-loading").forEach(w => {
+          w.style.setProperty('display', 'none', 'important');
+          const widget = w.closest(".elementor-widget");
+          if (widget) {
+            widget.style.setProperty('display', 'none', 'important');
+          }
+        });
+      }
+
+      if (DOM.videoStatusHint) DOM.videoStatusHint.style.display = "none";
+      DOM.resultVideo?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
 
 
 
