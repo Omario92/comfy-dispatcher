@@ -296,7 +296,7 @@
     }
     /* ==================== MOBILE (max 767px) ==================== */
     @media (max-width: 767px) {
-      #intro { min-height: 55vh; padding: 25px 0 20px; perspective: 1200px; }
+      #intro { min-height: 70vh; margin-top: 15vh; padding: 25px 0 20px; perspective: 1200px; }
       .intro-stage { height: 340px; max-width: 100%; }
       .intro-card {
         width: 160px; height: 280px;
@@ -1235,7 +1235,7 @@
         formData.append("confirm", "1");
 
         try {
-          /* ── Step 1: Check ảnh (sync) ── */
+          /* ── Step 1: Check ảnh & Submit Job luôn (sync) ── */
           const nonce = await getFreshNonce();
 
           // AbortController — timeout 70s để tránh fetch đứng vĩnh viễn trên mobile 4G yếu
@@ -1263,36 +1263,11 @@
             return;
           }
 
-          /* ── Step 2: Gửi swap NGAY (song song với intro animation) ── */
-          // Swap chỉ cần ACK từ n8n (~5s), timeout 30s là đủ
+          /* ── Step 2: Hiển thị intro coverflow 10s ── */
           setButtonState(DOM.uploadButton, "loading", "Đang xử lý...");
-
-          const swapAbort = new AbortController();
-          const swapTimer = setTimeout(() => swapAbort.abort(), 30000);
-
-          // Fire swap (Promise) — KHÔNG await ở đây, để intro animation chạy song song
-          const swapPromise = (async () => {
-            try {
-              const swapRes = await fetch(PROXY_SWAP_URL, {
-                method: "POST",
-                headers: { 'X-LH-Faceswap-Nonce': nonce },
-                body: formData,
-                signal: swapAbort.signal,
-              });
-              if (!swapRes.ok) throw new Error(`Swap server error: ${swapRes.status}`);
-              let swapInit = await swapRes.json();
-              if (Array.isArray(swapInit)) swapInit = swapInit[0];
-              return swapInit;
-            } finally {
-              clearTimeout(swapTimer);
-            }
-          })();
-
-          /* ── Step 3: Hiển thị intro coverflow 10s (chạy song song với swap) ── */
-          // runIntroAnimation() tự ẩn step-03 và hiện #intro với coverflow
           await runIntroAnimation();
 
-          /* ── Step 4: Sau intro xong → chuyển step-05 (loading như cũ) ── */
+          /* ── Step 3: Sau intro xong → chuyển step-05 (loading như cũ) ── */
           if (DOM.step5Loading) DOM.step5Loading.style.display = "block";
           if (DOM.loadingImagePreview && DOM.imagePreview?.src) {
             DOM.loadingImagePreview.src = DOM.imagePreview.src;
@@ -1300,19 +1275,18 @@
           }
           switchToStep("step-05");
 
-          /* ── Step 5: Đợi swap response (đã chạy nền từ trước) ── */
-          const swapInit = await swapPromise;
-
+          /* ── Step 4: Sử dụng luôn job_id từ checkResult ── */
           // Dual-job mode (v2.0)
-          if (swapInit?.image_job_id && swapInit?.video_job_id) {
-            state.imageJobId = swapInit.image_job_id;
-            state.videoJobId = swapInit.video_job_id;
+          if (checkResult?.image_job_id && checkResult?.video_job_id) {
+            state.imageJobId = checkResult.image_job_id;
+            state.videoJobId = checkResult.video_job_id;
+            const pollInterval = checkResult.poll_interval || IMAGE_POLL_MS;
 
-            /* ── Step 6A: Poll image (priority) — khi xong chuyển step-06 ngay ── */
-            const imageResult = await pollJobResult(state.imageJobId, IMAGE_POLL_MS);
+            /* ── Step 5A: Poll image (priority) — khi xong chuyển step-06 ngay ── */
+            const imageResult = await pollJobResult(state.imageJobId, pollInterval);
             showQuickImageResult(imageResult);
 
-            /* ── Step 6B: Poll video (background, đã bắt đầu song song) ── */
+            /* ── Step 5B: Poll video (background, đã bắt đầu song song) ── */
             pollJobResult(state.videoJobId, VIDEO_POLL_MS)
               .then(videoResult => {
                 if (videoResult.success && videoResult.video_url) {
@@ -1329,8 +1303,8 @@
               });
 
             // Legacy single-job fallback (backward-compat with old n8n)
-          } else if (swapInit?.job_id) {
-            const swapResult = await pollJobResult(swapInit.job_id, VIDEO_POLL_MS);
+          } else if (checkResult?.job_id) {
+            const swapResult = await pollJobResult(checkResult.job_id, VIDEO_POLL_MS);
             if (swapResult.success && swapResult.video_url) {
               showStep06(swapResult);
             } else {

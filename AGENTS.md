@@ -51,6 +51,10 @@
 - [2026-05-18] Video Loading Animation: Added a custom dynamic typing dots loading animation ("VIDEO ĐANG TẠO" -> "." -> ".." -> "..." -> "...." -> "....." -> "...." etc.) to `btn-get-video` in `frontend_script.html` to improve visual feedback when generating video in the background.
 - [2026-05-18] Parallel FaceSwap Intro & BW Reveal (Coverflow v2.0): Triển khai intro Coverflow 3D kiểu Apple dài 10 giây chạy song song trực tiếp với quá trình gọi API `/swap`. Tích hợp hiệu ứng BW Reveal (ảnh đen trắng hiện trước 1.2s, sau đó fade sang ảnh thật), sử dụng ảnh mapping BW_0→BW_5 từ `personality` do n8n/PHP trả về để tạo hiệu ứng chuyển tiếp ấn tượng hơn. Hỗ trợ responsive tuyệt đối cho Tablet & Mobile. Tích hợp dọn dẹp an toàn khi Reset/Lỗi.
 - [2026-05-19] VIP Workers Lifecycle: Deployed 2 brand new VIP pods (RTX 5090) (Image: gs22j5x17t2vx9, Video: pnmyw06nsv7h7s) pinned for 24 hours using `scratch/deploy_new_vip_pods.py`, and later safely terminated them and cleaned up their Redis registries via `scratch/terminate_vip_pods.py` per user request.
+- [2026-05-19] VIP Workers Deployment: Deployed 2 additional VIP pods (RTX 5090) (Image: aa11lo7jd1f78m, Video: qszkesyaifba8u) pinned for 24 hours to support parallel Image and Video processing via `scratch/deploy_new_vip_pods.py`.
+- [2026-05-19] VIP Workers Lifecycle: Safely terminated specific VIP pod `3wpuoywybtq9qi` on RunPod and cleaned up its Redis registry per user request.
+- [2026-05-19] Total Cleanup: Safely terminated ALL 10 active and legacy pods on RunPod and completely cleared the Redis worker registry via custom script `scratch/terminate_all_pods.py` to prevent resource leaks and reset state.
+- [2026-05-20] Rate Limiting (Dual-Layer): Triển khai cơ chế giới hạn tần suất tạo job IP-based (tối đa 5 lượt/5 phút). Phía PHP Proxy (lh-faceswap-proxy.php) sử dụng WordPress transients (sliding window) chặn spam ngay từ WordPress và truyền user_ip sang n8n; Phía Dispatcher (src/main.py) sử dụng Redis ZSET sliding window tự bảo vệ API; Viết kịch bản test scratch/test_rate_limit.py để tự động xác minh.
 
 
 
@@ -59,9 +63,7 @@
 
 
 
-
-
-## vexp <!-- vexp v2.0.12 -->
+## vexp <!-- vexp v2.0.17 -->
 
 **MANDATORY: use `run_pipeline` — do NOT grep or glob the codebase.**
 vexp returns pre-indexed, graph-ranked context in a single call.

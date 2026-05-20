@@ -142,6 +142,51 @@ function lh_check_token($request) {
     return true;
 }
 
+// ================== RATE LIMIT (5 requests / 5 minutes) ==================
+function lh_check_rate_limit($user_ip) {
+    $now = time();
+    $limit_time = 300; // 5 phút (300 giây)
+    $max_requests = 5;
+
+    // Lấy danh sách timestamps từ transient
+    $requests = get_transient('lhfs_rate_' . $user_ip);
+    if (!is_array($requests)) {
+        $requests = [];
+    }
+
+    // Loại bỏ các request đã quá 5 phút
+    $requests = array_filter($requests, function($timestamp) use ($now, $limit_time) {
+        return ($now - $timestamp) < $limit_time;
+    });
+
+    if (count($requests) >= $max_requests) {
+        // Tính toán thời gian chờ từ request cũ nhất
+        sort($requests);
+        $oldest = $requests[0];
+        $wait_seconds = $limit_time - ($now - $oldest);
+        
+        $minutes = floor($wait_seconds / 60);
+        $seconds = $wait_seconds % 60;
+        
+        if ($minutes > 0) {
+            $time_str = $minutes . ' phút ' . $seconds . ' giây';
+        } else {
+            $time_str = $seconds . ' giây';
+        }
+        
+        return new WP_Error(
+            'rate_limit_exceeded', 
+            'Bạn đã đạt giới hạn 5 lượt tạo trong 5 phút. Vui lòng chờ ' . $time_str . ' nữa để tiếp tục.', 
+            ['status' => 429]
+        );
+    }
+
+    // Thêm timestamp hiện tại và lưu lại
+    $requests[] = $now;
+    set_transient('lhfs_rate_' . $user_ip, $requests, $limit_time);
+    return true;
+}
+
 // ================== CURL HELPER (sync, dùng cho check & phone) ==================
 function lh_curl_forward($n8n_url, $post_fields, $timeout = 60) {
     $ch = curl_init($n8n_url);
@@ -198,12 +243,40 @@ function lh_handle_face_check($request) {
     $validate = lh_validate_uploaded_file($files['file'] ?? null);
     if (is_wp_error($validate)) return $validate;
 
+    // Rate limit check
+    $user_ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $rate_limit = lh_check_rate_limit($user_ip);
+    if (is_wp_error($rate_limit)) return $rate_limit;
+
+    // Sinh sẵn 2 job_id để gửi kèm cho n8n sub-workflow
+    $image_job_id = 'lhfs_img_' . bin2hex(random_bytes(10));
+    $video_job_id = 'lhfs_vid_' . bin2hex(random_bytes(10));
+    $now = time();
+
+    // Lưu transient pending cho cả 2 job
+    set_transient('lhfs_job_' . $image_job_id, [
+        'status' => 'pending', 'output_type' => 'image',
+        'sibling_job' => $video_job_id, 'created_at' => $now,
+    ], JOB_TTL);
+    set_transient('lhfs_job_' . $video_job_id, [
+        'status' => 'pending', 'output_type' => 'video',
+        'sibling_job' => $image_job_id, 'created_at' => $now,
+    ], JOB_TTL);
+
     $post_fields = [
         'file' => new CURLFile(
             $files['file']['tmp_name'],
             $files['file']['type'] ?? 'application/octet-stream',
             $files['file']['name']
-        )
+        ),
+        // Job IDs + callback info — n8n sẽ forward sang sub-workflow nếu suitable=true
+        'image_job_id'       => $image_job_id,
+        'video_job_id'       => $video_job_id,
+        'image_n8n_callback' => N8N_IMG_RESULT_URL,
+        'video_n8n_callback' => N8N_VID_RESULT_URL,
+        'callback_url'       => rest_url('faceswap/v1/result'),
+        'callback_secret'    => N8N_SECRET,
+        'user_ip'            => $user_ip,
     ];
     foreach ($request->get_body_params() as $k => $v) $post_fields[$k] = $v;
 
@@ -211,20 +284,30 @@ function lh_handle_face_check($request) {
     [$response, $http_code, $curl_error] = lh_curl_forward(N8N_CHECK_URL, $post_fields, 55);
 
     if ($curl_error) {
+        // Cleanup transient nếu fail
+        delete_transient('lhfs_job_' . $image_job_id);
+        delete_transient('lhfs_job_' . $video_job_id);
         return new WP_Error('curl_error', 'Lỗi kết nối: ' . $curl_error, ['status' => 500]);
     }
-    
+
     $data = json_decode($response, true);
     if (json_last_error() !== JSON_ERROR_NONE) {
+        delete_transient('lhfs_job_' . $image_job_id);
+        delete_transient('lhfs_job_' . $video_job_id);
         return new WP_REST_Response(['success' => false, 'reason' => 'Lỗi parse JSON từ n8n'], 500);
     }
-    
-    // n8n "Respond to Webhook" node thường trả về mảng [{...}]
-    // Unwrap mảng để frontend nhận được object gốc
+
     if (is_array($data) && isset($data[0]) && is_array($data[0])) {
         $data = $data[0];
     }
-    
+
+    // Nếu suitable=true → response đã có image_job_id, video_job_id, poll_interval do n8n trả về
+    // Nếu suitable=false → cleanup transient
+    if (empty($data['success'])) {
+        delete_transient('lhfs_job_' . $image_job_id);
+        delete_transient('lhfs_job_' . $video_job_id);
+    }
+
     return new WP_REST_Response($data, $http_code);
 }
 
@@ -238,6 +321,11 @@ function lh_handle_face_swap_async($request) {
     $files = $request->get_file_params();
     $validate = lh_validate_uploaded_file($files['file'] ?? null);
     if (is_wp_error($validate)) return $validate;
+
+    // Rate limit check
+    $user_ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $rate_limit = lh_check_rate_limit($user_ip);
+    if (is_wp_error($rate_limit)) return $rate_limit;
 
     // Tạo 2 job ID riêng biệt cho image và video
     $image_job_id = 'lhfs_img_' . bin2hex(random_bytes(10));
@@ -283,6 +371,7 @@ function lh_handle_face_swap_async($request) {
         // WordPress callback: n8n gọi về đây sau khi đã xử lý xong kết quả từ dispatcher
         'callback_url'      => $wp_callback_url,
         'callback_secret'   => N8N_SECRET,
+        'user_ip'           => $user_ip,
     ];
     foreach ($request->get_body_params() as $k => $v) $post_fields[$k] = $v;
 

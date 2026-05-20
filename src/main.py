@@ -5,7 +5,7 @@ import uuid
 import httpx
 from contextlib import asynccontextmanager
 from typing import Literal, Optional
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 from loguru import logger
 
@@ -79,6 +79,7 @@ class SubmitJobReq(BaseModel):
 
     personality: str | int = ""
     user_id: str = ""
+    user_ip: str = ""
     job_id: str = ""
     callback_url: str = ""
     priority: Literal["high", "normal"] = "normal"
@@ -619,10 +620,52 @@ async def worker_done(req: DoneReq):
     return {"ok": True}
 
 
+# ============ RATE LIMIT HELPER ============
+
+async def check_rate_limit(redis_conn, identifier: str, max_requests: int = 5, window_sec: int = 300) -> Optional[int]:
+    """
+    Checks rate limiting using a Redis Sorted Set (sliding window).
+    Returns None if allowed, or the remaining wait time in seconds if rate-limited.
+    """
+    key = f"rate_limit:{identifier}"
+    now = time.time()
+    clear_before = now - window_sec
+    unique_member = f"{now}_{uuid.uuid4().hex[:4]}"
+
+    pipe = redis_conn.pipeline()
+    # 1. Remove elements older than window
+    pipe.zremrangebyscore(key, "-inf", clear_before)
+    # 2. Get count of elements
+    pipe.zcard(key)
+    # 3. Add new request
+    pipe.zadd(key, {unique_member: now})
+    # 4. Set expiry
+    pipe.expire(key, window_sec)
+    # 5. Get oldest element timestamp to calculate wait time
+    pipe.zrange(key, 0, 0, withscores=True)
+
+    results = await pipe.execute()
+    count = results[1]
+    oldest_elements = results[4]
+
+    if count >= max_requests:
+        # Rate limited! Roll back the ZADD so this rejected attempt doesn't occupy a slot
+        await redis_conn.zrem(key, unique_member)
+        
+        # Calculate remaining time
+        if oldest_elements:
+            oldest_score = oldest_elements[0][1]
+            wait_sec = int(window_sec - (now - oldest_score))
+            return max(1, wait_sec)
+        return window_sec
+
+    return None
+
+
 # ============ JOB SUBMISSION ============
 
 @app.post("/jobs")
-async def submit_job(req: SubmitJobReq):
+async def submit_job(req: SubmitJobReq, request: Request):
     """
     n8n gọi endpoint này sau khi đã:
       1. Random chọn workflow (0-5 personality)
@@ -635,6 +678,40 @@ async def submit_job(req: SubmitJobReq):
       - Trả { ok, job_id, status } ngay về n8n (không chờ render)
       - Chạy full pipeline (pod → ComfyUI → R2 → callback) trong background
     """
+    # ── RATE LIMITING CHECK ──
+    # Định danh user bằng req.user_ip hoặc req.user_id. 
+    # Nếu trống, thử trích xuất IP từ HTTP headers.
+    user_ip = req.user_ip or req.user_id
+    if not user_ip:
+        x_forwarded_for = request.headers.get("x-forwarded-for")
+        if x_forwarded_for:
+            user_ip = x_forwarded_for.split(",")[0].strip()
+        else:
+            x_real_ip = request.headers.get("x-real-ip")
+            if x_real_ip:
+                user_ip = x_real_ip.strip()
+            else:
+                user_ip = request.client.host if request.client else ""
+
+    # Tránh rate limit các localhost / unknown IP hoặc nếu không thể định danh
+    if user_ip and user_ip not in ("127.0.0.1", "localhost", "unknown", ""):
+        r = await get_redis()
+        # Giới hạn 5 requests trong 5 phút (300 giây)
+        wait_time = await check_rate_limit(r, user_ip, max_requests=5, window_sec=300)
+        if wait_time is not None:
+            minutes = wait_time // 60
+            seconds = wait_time % 60
+            if minutes > 0:
+                time_str = f"{minutes} phút {seconds} giây"
+            else:
+                time_str = f"{seconds} giây"
+            
+            logger.warning(f"[rate-limit] Blocked request from IP/ID={user_ip}. Wait remaining: {time_str}")
+            raise HTTPException(
+                status_code=429,
+                detail=f"Bạn đã đạt giới hạn 5 lượt tạo trong 5 phút. Vui lòng chờ {time_str} nữa để tiếp tục."
+            )
+
     # Ưu tiên dùng job_id từ n8n/PHP gửi lên (lhfs_xxx), nếu không có mới tự sinh
     job_id = req.job_id or f"job_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
 
