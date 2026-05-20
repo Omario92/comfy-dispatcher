@@ -186,10 +186,10 @@
     position: absolute;
     top: 0;
     left: 0;
-    /* ~10fps: 8 frames × 100ms = 0.8s mỗi hàng */
+    /* ~24fps: 8 frames × (1/24s) = 0.333s mỗi hàng */
     animation:
-      sprite-col 0.8s steps(8, end) infinite,
-      sprite-row 5.6s steps(1, end) infinite;
+      sprite-col 0.333s steps(8, end) infinite,
+      sprite-row 2.333s steps(1, end) infinite;
   }
 
   /* Mobile: button cao 48px → scale 128→44px = 0.344 */
