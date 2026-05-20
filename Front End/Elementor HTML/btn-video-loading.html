@@ -50,7 +50,7 @@
     border-radius: 999px;
     background: url("https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/05/BEER_BAR.webp") no-repeat center;
     background-size: 100% 100%;
-    overflow: hidden;
+    overflow: visible;
 
     /* Subtle drop shadow down-right when not ready */
     box-shadow: 4px 6px 15px rgba(0, 0, 0, 0.16);
@@ -151,74 +151,82 @@
   }
 
   /* ============================
-     SPRITE RUN ANIMATION
-     Sprite sheet: 8 cols × 7 rows = 56 frames
-     Each frame: 128×128px → sheet total: 1024×896px
-     Target speed: ~10fps → 0.8s / 8 cols
+     SPRITE RUN ANIMATION — 24fps
+     Sprite sheet: 8 cols × 7 rows, mỗi frame gốc 128×128px
+     Hiển thị tại 52×52px: scale = 52/128 = 0.40625
+       → background-size: 416px (1024×0.40625) × 364px (896×0.40625)
+       → mỗi bước sprite-col = 52px, sprite-row = 52px
   ============================ */
 
-  /* Wrapper — inline-flex canh giữa dọc với text */
+  /* Wrapper: không overflow:hidden để không clip sprite */
   .beer-btn-sprite-wrap {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    /* Chiều cao/rộng bằng button height desktop, canh giữa dọc */
-    height: 52px;
-    width: 52px;
     flex-shrink: 0;
-    /* vertical-align để không đẩy baseline text xuống */
-    vertical-align: middle;
-    position: relative;
-    overflow: hidden;
+    /* Không cần position/overflow — sprite tự vừa kích thước */
   }
 
   .beer-btn-sprite {
-    /* Frame size gốc: 128×128 */
-    width: 128px;
-    height: 128px;
+    /* Hiển thị trực tiếp 52×52px, không dùng transform */
+    display: block;
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
     background-image: url('https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/05/Run_Sprite_sheets.webp');
     background-repeat: no-repeat;
-    /* Sheet size: 8 cols × 128 = 1024px, 7 rows × 128 = 896px */
-    background-size: 1024px 896px;
-    /* Scale xuống để vừa wrapper 52px (128 × 0.406 ≈ 52px) */
-    transform: scale(0.406);
-    transform-origin: top left;
-    position: absolute;
-    top: 0;
-    left: 0;
-    /* ~24fps: 8 frames × (1/24s) = 0.333s mỗi hàng */
+    background-position: 0 0;
+    /* Scale background xuống: 1024 × 0.40625 = 416px, 896 × 0.40625 = 364px */
+    background-size: 416px 364px;
+    /* 24fps: mỗi hàng = 8 frames × (1/24s) ≈ 0.333s */
     animation:
-      sprite-col 0.333s steps(8, end) infinite,
-      sprite-row 2.333s steps(1, end) infinite;
+      sprite-col-sm 0.333s steps(8, end) infinite,
+      sprite-row-sm 2.333s steps(1, end) infinite;
   }
 
-  /* Mobile: button cao 48px → scale 128→44px = 0.344 */
+  /* Mobile ≤ 480px: hiển thị 40×40px, scale = 40/128 = 0.3125
+     background-size: 320px (1024×0.3125) × 280px (896×0.3125) */
   @media (max-width: 480px) {
-    .beer-btn-sprite-wrap {
-      height: 44px;
-      width: 44px;
-    }
     .beer-btn-sprite {
-      transform: scale(0.344);
+      width: 40px;
+      height: 40px;
+      background-size: 320px 280px;
+      animation:
+        sprite-col-xs 0.333s steps(8, end) infinite,
+        sprite-row-xs 2.333s steps(1, end) infinite;
     }
   }
 
-  /* Chạy qua 8 cột (trục X) */
-  @keyframes sprite-col {
+  /* Desktop: bước = 52px × 8 = 416px */
+  @keyframes sprite-col-sm {
     from { background-position-x: 0px; }
-    to   { background-position-x: -1024px; }
+    to   { background-position-x: -416px; }
+  }
+  @keyframes sprite-row-sm {
+    0%     { background-position-y: 0px; }
+    14.28% { background-position-y: -52px; }
+    28.57% { background-position-y: -104px; }
+    42.85% { background-position-y: -156px; }
+    57.14% { background-position-y: -208px; }
+    71.42% { background-position-y: -260px; }
+    85.71% { background-position-y: -312px; }
+    100%   { background-position-y: -312px; }
   }
 
-  /* Chạy qua 7 hàng (trục Y) */
-  @keyframes sprite-row {
+  /* Mobile: bước = 40px × 8 = 320px */
+  @keyframes sprite-col-xs {
+    from { background-position-x: 0px; }
+    to   { background-position-x: -320px; }
+  }
+  @keyframes sprite-row-xs {
     0%     { background-position-y: 0px; }
-    14.28% { background-position-y: -128px; }
-    28.57% { background-position-y: -256px; }
-    42.85% { background-position-y: -384px; }
-    57.14% { background-position-y: -512px; }
-    71.42% { background-position-y: -640px; }
-    85.71% { background-position-y: -768px; }
-    100%   { background-position-y: -768px; }
+    14.28% { background-position-y: -40px; }
+    28.57% { background-position-y: -80px; }
+    42.85% { background-position-y: -120px; }
+    57.14% { background-position-y: -160px; }
+    71.42% { background-position-y: -200px; }
+    85.71% { background-position-y: -240px; }
+    100%   { background-position-y: -240px; }
   }
 
   /* Ẩn sprite khi ready hoặc error */
