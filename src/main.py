@@ -6,6 +6,7 @@ import httpx
 from contextlib import asynccontextmanager
 from typing import Literal, Optional
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from loguru import logger
 
@@ -47,6 +48,15 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan, title="Halida FaceSwap Dispatcher")
+
+# CORS — cho phép Admin Panel (file://) và các domain nội bộ gọi API
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],          # file:// origin = "null", wildcard bắt hết
+    allow_credentials=False,      # credentials=False bắt buộc khi allow_origins=["*"]
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 
 # ============ MODELS ============
