@@ -337,19 +337,24 @@ async def warmup_vip(req: WarmupReq):
     Autoscaler sẽ KHÔNG tắt các pod này trong thời gian được ghim.
     Dùng trước khi mở đợt traffic lớn (demo / ra mắt / giờ cao điểm).
     """
-    from autoscaler import _IMAGE_BLOCKED_GPUS
+    from autoscaler import _IMAGE_BLOCKED_GPUS, _VIDEO_GPU_PRIORITY, _IMAGE_GPU_PRIORITY, _sort_gpus
 
     pinned_until = int(time.time()) + int(req.duration_hours * 3600)
     expires_at = time.strftime("%H:%M:%S %d/%m/%Y", time.localtime(pinned_until))
 
-    # Lọc GPU theo worker_type: image worker không được dùng RTX PRO 6000
+    # Lọc và sắp xếp GPU theo worker_type
     gpu_list = req.gpu_types
     if req.worker_type == "image":
         filtered = [g for g in gpu_list if g not in _IMAGE_BLOCKED_GPUS]
         if len(filtered) < len(gpu_list):
             removed = [g for g in gpu_list if g in _IMAGE_BLOCKED_GPUS]
             logger.info(f"[warmup] IMAGE worker: loại {len(removed)} GPU khỏi danh sách: {removed}")
-        gpu_list = filtered
+        
+        # Image worker: ưu tiên theo danh sách _IMAGE_GPU_PRIORITY
+        gpu_list = _sort_gpus(filtered, _IMAGE_GPU_PRIORITY)
+    elif req.worker_type == "video":
+        # Video worker: ưu tiên theo danh sách _VIDEO_GPU_PRIORITY
+        gpu_list = _sort_gpus(gpu_list, _VIDEO_GPU_PRIORITY)
 
     if not gpu_list:
         raise HTTPException(status_code=400, detail="Không còn GPU hợp lệ sau khi lọc cho image worker")

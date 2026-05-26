@@ -18,6 +18,40 @@ _IMAGE_BLOCKED_GPUS: frozenset[str] = frozenset({
     "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
 })
 
+# Danh sách các GPU cao cấp ưu tiên dành cho Video
+_HIGH_END_GPUS: frozenset[str] = frozenset({
+    "NVIDIA GeForce RTX 5090",
+    "NVIDIA L40S",
+    "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+})
+
+# Thứ tự ưu tiên GPU cho Video Job (từ cao xuống thấp)
+_VIDEO_GPU_PRIORITY = (
+    "NVIDIA GeForce RTX 5090",
+    "NVIDIA L40S",
+    "NVIDIA RTX PRO 4500 Blackwell",
+    "NVIDIA RTX 4500 Ada Generation",
+    "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "NVIDIA RTX PRO 6000 Blackwell Workstation Edition",
+    "NVIDIA GeForce RTX 4090",
+)
+
+# Thứ tự ưu tiên GPU cho Image Job (từ cao xuống thấp)
+_IMAGE_GPU_PRIORITY = (
+    "NVIDIA RTX PRO 4500 Blackwell",
+    "NVIDIA RTX 4500 Ada Generation",
+    "NVIDIA GeForce RTX 4090",
+    "NVIDIA GeForce RTX 5090",
+    "NVIDIA L40S",
+)
+
+
+def _sort_gpus(gpus: list[str], priority_list: list[str]) -> list[str]:
+    """Sắp xếp danh sách gpus dựa trên priority_list, các card khác giữ nguyên vị trí ở cuối."""
+    priority_map = {name: index for index, name in enumerate(priority_list)}
+    return sorted(gpus, key=lambda g: priority_map.get(g, 9999))
+
 
 def peak_hours_status() -> tuple[bool, int, int]:
     """
@@ -150,6 +184,12 @@ async def scale_up(worker_type: str = "any") -> dict | None:
         if len(gpu_list) < len(all_gpus):
             blocked = [g for g in all_gpus if g in _IMAGE_BLOCKED_GPUS]
             logger.info(f"[autoscale] IMAGE worker: Ẩn {len(blocked)} GPU (RTX PRO 6000): {blocked}")
+        
+        # Image worker: ưu tiên theo danh sách _IMAGE_GPU_PRIORITY
+        gpu_list = _sort_gpus(gpu_list, _IMAGE_GPU_PRIORITY)
+    elif worker_type == "video":
+        # Video worker: ưu tiên theo danh sách _VIDEO_GPU_PRIORITY
+        gpu_list = _sort_gpus(all_gpus, _VIDEO_GPU_PRIORITY)
     else:
         gpu_list = all_gpus
 

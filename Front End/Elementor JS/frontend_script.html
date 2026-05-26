@@ -118,10 +118,20 @@
     }
     /* Status hint below image in step-06 */
     #video-status-hint {
-      font-size: 0.82em;
-      opacity: 0.7;
-      margin-top: 6px;
+      font-size: clamp(15px, 2.8vw, 20px);
+      opacity: 1;
+      margin-top: 10px;
       text-align: center;
+      color: #ffffff;
+      font-weight: 900;
+      letter-spacing: 0.3px;
+      line-height: 1.25;
+      text-shadow:
+        0 2px 6px rgba(0,0,0,0.65),
+        0 0 10px rgba(255,215,0,0.35);
+    }
+    #video-status-hint strong {
+      font-weight: 950;
     }
     /* Generic btn micro-animation */
     .btn-action {
@@ -647,7 +657,7 @@
         if (bannerEl) bannerEl.style.display = "none";
         document.body.classList.add("bg-step-3-active");
       } else {
-        if (bannerEl) bannerEl.style.display = ""; // Khôi phục display mặc định nếu quay lại step-02
+        if (bannerEl) bannerEl.style.display = "";
         document.body.classList.remove("bg-step-3-active");
       }
 
@@ -661,8 +671,21 @@
 
       state.transitioning = true;
 
+      // ── HARD FAILSAFE: nếu sau 2s vẫn còn lock (tab bị ẩn, transitionend không fire)
+      // thì tự force unlock để tránh màn hình đứng yên vĩnh viễn
+      const hardUnlockTimer = setTimeout(() => {
+        if (state.transitioning) {
+          console.warn("[switchToStep] hard-unlock triggered for", targetId);
+          state.transitioning = false;
+          // Đảm bảo target đang hiện
+          targetEl.style.display = targetEl.dataset.displayMode || "flex";
+          targetEl.classList.remove(enterClass);
+          targetEl.classList.add("step-active");
+          if (currentEl) currentEl.style.display = "none";
+        }
+      }, 2000);
+
       function showTarget() {
-        // Prep target: position off-screen (below or above), make visible but transparent
         targetEl.classList.add(enterClass);
         targetEl.classList.remove("step-active");
         targetEl.style.display = targetEl.dataset.displayMode || "flex";
@@ -672,21 +695,20 @@
             targetEl.classList.remove(enterClass);
             targetEl.classList.add("step-active");
 
-            // Unlock after transition completes (with fallback for mobile Safari)
             let fired = false;
             const unlock = () => {
               if (fired) return;
               fired = true;
+              clearTimeout(hardUnlockTimer);
               state.transitioning = false;
             };
             targetEl.addEventListener("transitionend", unlock, { once: true });
-            setTimeout(unlock, 450); // fallback
+            setTimeout(unlock, 500); // fallback tăng 500ms cho thiết bị chậm
           });
         });
       }
 
       if (currentEl) {
-        // Fade out current step
         currentEl.classList.remove("step-active");
         let fired = false;
         const hideCurrent = () => {
@@ -696,9 +718,8 @@
           showTarget();
         };
         currentEl.addEventListener("transitionend", hideCurrent, { once: true });
-        setTimeout(hideCurrent, 450); // fallback
+        setTimeout(hideCurrent, 500); // fallback tăng 500ms
       } else {
-        // No current step — just show target directly
         showTarget();
       }
     }
@@ -901,6 +922,25 @@
       showStepInstant("step-02");
     }
 
+    // ── Tab Visibility Guard ─────────────────────────────────────────────────
+    // Khi user rời tab: browser pause CSS transitions → transitionend không fire
+    // → state.transitioning kẹt = true → switchToStep bị block khi quay lại tab.
+    // Fix: reset lock ngay khi tab trở lại visible, và force show step đang pending.
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible" && state.transitioning) {
+        console.warn("[visibilitychange] Tab restored — force-resetting transitioning lock");
+        state.transitioning = false;
+
+        // Nếu step-05 đang được gọi nhưng chưa hiện (loading container)
+        // kiểm tra và force show nếu cần
+        const step05 = document.getElementById("step-05");
+        const step5Loading = document.getElementById("step5-loading");
+        if (step05 && step05.style.display !== "none" && step5Loading) {
+          step5Loading.style.setProperty("display", "block", "important");
+        }
+      }
+    });
+
 
     /* ============================================================
        6. BUTTON STATE UTILITY
@@ -954,13 +994,14 @@
       
       const shells = document.querySelectorAll(".beer-btn-shell");
       shells.forEach(shell => {
-        shell.classList.remove("is-ready", "is-error", "is-hidden");
+        shell.classList.remove("is-ready", "is-error", "is-hidden", "is-download-ready");
+        shell.dataset.videoCtaState = "loading";
         shell.style.display = ""; // Khôi phục display
         shell.style.setProperty('--beer-progress', '8%');
 
         const labelSpan = shell.querySelector(".beer-btn-label span");
         if (labelSpan) {
-          labelSpan.innerHTML = `Video Đang Được Tạo<span class="beer-btn-dots"><i></i><i></i><i></i></span><i class="beer-btn-check">✓</i>`;
+          labelSpan.innerHTML = `Video AI đang được tạo<span class="beer-btn-dots"><i></i><i></i><i></i></span><i class="beer-btn-check">✓</i>`;
         }
       });
 
@@ -1004,6 +1045,7 @@
         shell.classList.remove("is-error", "is-hidden");
         shell.style.display = "";
         shell.style.setProperty('--beer-progress', '100%');
+        shell.dataset.videoCtaState = "ready";
 
         const labelSpan = shell.querySelector(".beer-btn-label span");
         if (labelSpan) {
@@ -1046,6 +1088,20 @@
           widget.style.setProperty('display', 'none', 'important');
         }
       });
+      // Ẩn luôn widget voi-run (sprite container) cùng lúc
+      document.querySelectorAll(".voi-run").forEach(el => {
+        el.style.setProperty('display', 'none', 'important');
+      });
+      // Fallback: ẩn Elementor widget cha chứa #spriteContainer
+      const spriteEl = document.getElementById("spriteContainer");
+      if (spriteEl) {
+        const spriteWidget = spriteEl.closest(".elementor-widget");
+        if (spriteWidget) spriteWidget.style.setProperty('display', 'none', 'important');
+      }
+      // Ẩn .loading-container — container cha của beer loading button
+      // document.querySelectorAll(".loading-container").forEach(el => {
+      //   el.style.setProperty('display', 'none', 'important');
+      // });
     };
 
     window.beerBtnShow = function() {
@@ -1061,6 +1117,19 @@
         if (widget) {
           widget.style.display = "";
         }
+      });
+      // Hiện lại voi-run khi beer button show trở lại
+      document.querySelectorAll(".voi-run").forEach(el => {
+        el.style.display = "";
+      });
+      const spriteEl = document.getElementById("spriteContainer");
+      if (spriteEl) {
+        const spriteWidget = spriteEl.closest(".elementor-widget");
+        if (spriteWidget) spriteWidget.style.display = "";
+      }
+      // Hiện lại .loading-container
+      document.querySelectorAll(".loading-container").forEach(el => {
+        el.style.display = "";
       });
     };
 
@@ -1504,7 +1573,7 @@
         }
         startVideoLoadingAnimation();
         if (DOM.videoStatusHint) {
-          DOM.videoStatusHint.textContent = "Ảnh preview sẵn sàng! Video đang được tạo nền...";
+          DOM.videoStatusHint.innerHTML = "<strong>Video AI đang được tạo</strong>";
         }
       }
 
@@ -1697,12 +1766,14 @@
             return;
           }
 
-          /* ── Step 2: Hiển thị intro coverflow 10s ── */
+          /* ── Step 2: Bỏ intro, chuyển thẳng sang step-05 loading ── */
           setButtonState(DOM.uploadButton, "loading", "Đang xử lý...");
-          await runIntroAnimation();
+          state.transitioning = false;
 
-          /* ── Step 3: Sau intro xong → chuyển step-05 (loading như cũ) ── */
-          if (DOM.step5Loading) DOM.step5Loading.style.display = "block";
+          if (DOM.step5Loading) {
+            // Dùng setProperty + important để override Elementor inline style
+            DOM.step5Loading.style.setProperty("display", "block", "important");
+          }
           if (DOM.loadingImagePreview && DOM.imagePreview?.src) {
             DOM.loadingImagePreview.src = DOM.imagePreview.src;
             DOM.loadingImagePreview.classList.add("is-loading");
@@ -1767,52 +1838,115 @@
       });
     }
 
-    /* ── Event Delegation cho nút bia (Beer Loading Button) khi ready ── */
-    document.addEventListener("click", (e) => {
-      const shell = e.target.closest(".beer-btn-shell");
-      if (!shell) return;
-
-      // Nếu chưa sẵn sàng (chưa có class is-ready), chặn click hoàn toàn
-      if (!shell.classList.contains("is-ready")) {
-        e.preventDefault();
-        e.stopPropagation();
+    async function downloadVideoFromBeerButton(shell) {
+      const videoUrl = state.currentVideoUrl || state.videoUrl;
+      if (!videoUrl) {
+        alert("❌ Chưa có video để tải. Vui lòng thử lại!");
         return;
       }
 
-      // Khi đã sẵn sàng và có videoUrl
-      if (!state.videoUrl) return;
+      const labelSpan = shell?.querySelector(".beer-btn-label span");
+      const originalLabel = labelSpan?.innerHTML || "TẢI VIDEO";
 
-      if (DOM.resultImage) DOM.resultImage.classList.remove("visible");
-      state.downloadMode = "video";
-      if (DOM.btnDownload) DOM.btnDownload.textContent = "TẢI VIDEO";
+      let ext = "mp4";
+      const match = videoUrl.match(/\.([a-zA-Z0-9]+)(?:[\?#]|$)/);
+      if (match) ext = match[1].toLowerCase();
+
+      const filename = `TADAAAA-video-cua-ban.${ext}`;
+
+      try {
+        if (labelSpan) labelSpan.innerHTML = `ĐANG TẢI...`;
+
+        const res = await fetch(videoUrl, { method: "GET", mode: "cors" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+
+        const a = Object.assign(document.createElement("a"), {
+          href: blobUrl,
+          download: filename,
+        });
+
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+      } catch (err) {
+        console.warn("[beer video download] fetch/CORS failed:", err.message);
+
+        const a = Object.assign(document.createElement("a"), {
+          href: videoUrl,
+          download: filename,
+          target: "_blank",
+          rel: "noopener noreferrer",
+        });
+
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } finally {
+        if (labelSpan) labelSpan.innerHTML = originalLabel;
+      }
+    }
+
+    /* ── Event Delegation cho nút bia (Beer Loading Button) khi ready ── */
+    document.addEventListener("click", async (e) => {
+      const shell = e.target.closest(".beer-btn-shell");
+      if (!shell) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Nếu chưa sẵn sàng thì chặn click
+      if (!shell.classList.contains("is-ready")) return;
+
+      // Nếu video chưa có URL thì không làm gì
+      if (!state.videoUrl && !state.currentVideoUrl) return;
+
+      // Lần click thứ 2 trở đi: tải video từ chính nút beer
+      if (shell.dataset.videoCtaState === "download") {
+        await downloadVideoFromBeerButton(shell);
+        return;
+      }
+
+      // Lần click đầu tiên: show video, đổi chính nút này thành "TẢI VIDEO"
+      // QUAN TRỌNG: Giữ nút #btn-download là TẢI ẢNH
+      state.downloadMode = "image";
+      if (DOM.btnDownload) {
+        DOM.btnDownload.textContent = "TẢI ẢNH";
+        DOM.btnDownload.disabled = false;
+      }
+
+      if (DOM.resultImage) {
+        DOM.resultImage.classList.remove("visible");
+      }
 
       if (DOM.resultVideo) {
         DOM.resultVideo.classList.remove("video-section-hidden");
+
         const videoEl = DOM.resultVideo.querySelector("video.elementor-video");
         if (videoEl) {
           videoEl.classList.remove("video-hidden");
           videoEl.classList.add("video-visible");
-          videoEl.play().catch(() => { });
+          videoEl.play().catch(() => {});
         }
       }
 
-      if (window.beerBtnHide) {
-        window.beerBtnHide();
-      } else {
-        document.querySelectorAll(".beer-btn-shell").forEach(s => {
-          s.classList.add("is-hidden");
-          s.style.setProperty('display', 'none', 'important');
-        });
-        document.querySelectorAll("#btn-video-loading").forEach(w => {
-          w.style.setProperty('display', 'none', 'important');
-          const widget = w.closest(".elementor-widget");
-          if (widget) {
-            widget.style.setProperty('display', 'none', 'important');
-          }
-        });
+      // Không hide beer button nữa. Đổi nó thành nút tải video.
+      shell.dataset.videoCtaState = "download";
+      shell.classList.add("is-download-ready");
+
+      const labelSpan = shell.querySelector(".beer-btn-label span");
+      if (labelSpan) {
+        labelSpan.innerHTML = `TẢI VIDEO<i class="beer-btn-check">✓</i>`;
       }
 
-      if (DOM.videoStatusHint) DOM.videoStatusHint.style.display = "none";
+      if (DOM.videoStatusHint) {
+        DOM.videoStatusHint.style.display = "none";
+      }
+
       DOM.resultVideo?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
 
@@ -1821,18 +1955,58 @@
     /* ============================================================
        11. DOWNLOAD & SHARE (ĐÃ SỬA – CÓ QUOTE)
     ============================================================ */
+
+    /**
+     * Tải ảnh cross-origin về bằng cách vẽ lên canvas rồi export blob.
+     * Hoạt động khi server có Access-Control-Allow-Origin hoặc ảnh cùng origin.
+     * Trả về Promise<string> là blobUrl, hoặc reject nếu không load được.
+     */
+    function downloadImageViaCanvas(url, filename) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            canvas.width  = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            canvas.getContext("2d").drawImage(img, 0, 0);
+            canvas.toBlob(blob => {
+              if (!blob) { reject(new Error("canvas toBlob failed")); return; }
+              const blobUrl = URL.createObjectURL(blob);
+              const a = Object.assign(document.createElement("a"), { href: blobUrl, download: filename });
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+              resolve(blobUrl);
+            }, "image/jpeg", 0.95);
+          } catch (e) { reject(e); }
+        };
+        img.onerror = () => reject(new Error("img load failed: " + url));
+        img.src = url;
+      });
+    }
+
     async function handleDownload() {
       const isImageMode = state.downloadMode === "image";
+
+      // ── Xác định URL download ──────────────────────────────────────────────
+      // image_url = ảnh faceswap thật trên R2 | preview_url = fallback nếu có
+      // KHÔNG dùng img-personality — đó là ảnh template, không phải ảnh của user
       const downloadUrl = isImageMode
         ? (state.imageResult?.image_url || state.imageResult?.preview_url || "")
         : state.currentVideoUrl;
 
+      // Debug: log URL thực tế để verify
+      console.log(`[download] mode=${state.downloadMode} | url=${downloadUrl}`);
+
+      // ── Extension ─────────────────────────────────────────────────────────
       let ext = isImageMode ? "jpg" : "mp4";
       if (downloadUrl) {
         const match = downloadUrl.match(/\.([a-zA-Z0-9]+)(?:[\?#]|$)/);
-        if (match) {
-          ext = match[1].toLowerCase();
-        }
+        if (match) ext = match[1].toLowerCase();
+        if (ext === "webp") ext = "jpg"; // canvas export sẽ chuyển sang jpg
       }
       const filename = isImageMode ? `TADAAAA-anh-cua-ban.${ext}` : `TADAAAA-video-cua-ban.${ext}`;
 
@@ -1843,6 +2017,7 @@
 
       setButtonState(DOM.btnDownload, "loading");
       try {
+        // ── Thử 1: fetch + blob (hoạt động khi CORS đã config đúng) ──────────
         const res = await fetch(downloadUrl, { method: "GET", mode: "cors" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const blob = await res.blob();
@@ -1852,9 +2027,54 @@
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(blobUrl);
-      } catch (err) {
-        console.error("Download error:", err);
-        alert("❌ Không thể tải.\nLỗi: " + err.message);
+      } catch (fetchErr) {
+        console.warn("[download] fetch/CORS failed:", fetchErr.message);
+
+        if (isImageMode) {
+          // ── Thử 2 (ảnh): Canvas cross-origin download ────────────────────
+          try {
+            await downloadImageViaCanvas(downloadUrl, filename);
+            console.log("[download] ✅ canvas download thành công");
+          } catch (canvasErr) {
+            console.warn("[download] canvas failed:", canvasErr.message, "→ thử DOM img src");
+
+            // ── Thử 3: Lấy src từ <img> đang hiển thị trên trang ────────────
+            try {
+              const domImg = DOM.resultImageEl
+                || document.querySelector("#result-image img")
+                || document.querySelector(".result-image img");
+              const domSrc = domImg?.currentSrc || domImg?.src || "";
+              if (domSrc && (domSrc.startsWith("blob:") || domSrc.startsWith("data:"))) {
+                // Đây là blob/data URL → download trực tiếp
+                const a = Object.assign(document.createElement("a"), { href: domSrc, download: filename });
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                console.log("[download] ✅ DOM blob src thành công");
+              } else if (domSrc && domSrc !== downloadUrl) {
+                await downloadImageViaCanvas(domSrc, filename);
+                console.log("[download] ✅ canvas từ DOM src thành công");
+              } else {
+                throw new Error("no usable DOM src");
+              }
+            } catch {
+              // Last resort: mở tab mới
+              window.open(downloadUrl, "_blank", "noopener,noreferrer");
+            }
+          }
+        } else {
+          // Video: anchor fallback
+          try {
+            const a = Object.assign(document.createElement("a"), {
+              href: downloadUrl, download: filename, target: "_blank", rel: "noopener noreferrer",
+            });
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+          } catch {
+            window.open(downloadUrl, "_blank", "noopener,noreferrer");
+          }
+        }
       } finally {
         setButtonState(DOM.btnDownload, "enabled", isImageMode ? "TẢI ẢNH" : "TẢI VIDEO");
       }
