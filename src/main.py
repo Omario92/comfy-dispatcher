@@ -175,6 +175,7 @@ class RegisterPodReq(BaseModel):
     port: int = 8188      # Port ComfyUI (mặc định 8188)
     pin_hours: float = 0  # > 0 để ghim pod, autoscaler sẽ bỏ qua nó
     worker_type: str = "any"  # "image" | "video" | "any" — routing model-affinity
+    gpu_name: str = ""    # Tên card GPU cụ thể (ví dụ: NVIDIA GeForce RTX 5090)
 
 
 @app.post("/admin/register-pod")
@@ -210,10 +211,10 @@ async def admin_register_pod(req: RegisterPodReq):
 
     if req.proxy_url:
         # Community Cloud: dùng RunPod Proxy URL
-        await pool.register_proxy(req.pod_id, req.proxy_url, worker_type=req.worker_type)
+        await pool.register_proxy(req.pod_id, req.proxy_url, worker_type=req.worker_type, gpu_name=req.gpu_name)
     else:
         # Secure Cloud: dùng IP trực tiếp
-        await pool.register(req.pod_id, req.ip, req.port, worker_type=req.worker_type)
+        await pool.register(req.pod_id, req.ip, req.port, worker_type=req.worker_type, gpu_name=req.gpu_name)
 
     # Ghim pod nếu admin muốn
     pin_msg = None
@@ -381,9 +382,10 @@ async def warmup_vip(req: WarmupReq):
                     gpu_types_override=gpu_list,
                 )
                 pod_id = pod["id"]
-                await pool.mark_booting(pod_id, worker_type=req.worker_type)
+                gpu_name = pod.get("gpuName", "")
+                await pool.mark_booting(pod_id, worker_type=req.worker_type, gpu_name=gpu_name)
                 await pool._update(pod_id, pinned_until=pinned_until)
-                logger.info(f"[warmup] 🔒 pinned VIP pod {pod_id} until {expires_at} (worker_type={req.worker_type})")
+                logger.info(f"[warmup] 🔒 pinned VIP pod {pod_id} until {expires_at} (worker_type={req.worker_type}, gpu_name={gpu_name})")
                 created.append(pod_id)
                 success = True
                 break

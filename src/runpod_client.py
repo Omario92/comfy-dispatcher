@@ -78,7 +78,10 @@ class RunPodClient:
                         continue
 
                     logger.info(f"Successfully created pod with {gpu} in {cloud_type} cloud")
-                    return data["data"]["podFindAndDeployOnDemand"]
+                    res = data["data"]["podFindAndDeployOnDemand"]
+                    if res:
+                        res["gpuName"] = gpu
+                    return res
 
         raise Exception(f"All GPU fallback attempts failed. Last error: {last_error}")
 

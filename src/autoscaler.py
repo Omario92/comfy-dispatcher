@@ -201,9 +201,10 @@ async def scale_up(worker_type: str = "any") -> dict | None:
     try:
         pod = await runpod.create_pod(name, gpu_types_override=gpu_list)
         pod_id = pod["id"]
-        logger.info(f"[autoscale] created pod {pod_id} name={name} (status={pod.get('desiredStatus')})")
-        # Ghi ngay vào registry với status=booting + worker_type
-        await pool.mark_booting(pod_id, worker_type=worker_type)
+        gpu_name = pod.get("gpuName", "")
+        logger.info(f"[autoscale] created pod {pod_id} name={name} (status={pod.get('desiredStatus')}) GPU={gpu_name}")
+        # Ghi ngay vào registry với status=booting + worker_type + gpu_name
+        await pool.mark_booting(pod_id, worker_type=worker_type, gpu_name=gpu_name)
         return pod
     except Exception as e:
         logger.error(f"[autoscale] scale up FAILED ({worker_type}): {e}")
