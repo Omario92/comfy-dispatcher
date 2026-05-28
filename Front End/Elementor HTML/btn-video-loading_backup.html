@@ -1,0 +1,219 @@
+<!-- =====================================================
+     BTN-VIDEO-LOADING — Beer Loading Button (v4.0)
+     Thay thế hoàn toàn #btn-get-video bằng hai ảnh WebP:
+       - BEER_BAR.webp làm khung ngoài (shell background)
+       - BEER_BAR_2.webp làm ruột bia (fill mask)
+     Loại bỏ hoàn toàn các border thừa, track và bubbles CSS.
+===================================================== -->
+
+<style>
+  /* ============================
+     GOOGLE FONT IMPORT
+  ============================ */
+  @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@500;600&display=swap');
+
+  /* ============================
+     VARIABLES
+  ============================ */
+  :root {
+    --beer-btn-width: min(680px, 96vw);
+    --beer-btn-height: 72px;
+  }
+  @media (max-width: 480px) {
+    :root {
+      --beer-btn-height: 48px;
+    }
+  }
+
+  /* ============================
+     RESET & WRAPPER
+  ============================ */
+  #btn-video-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0;
+    margin: 0 auto;
+  }
+
+  /* ============================
+     OUTER SHELL (BEER_BAR.webp as frame background)
+  ============================ */
+  .beer-btn-shell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--beer-btn-width);
+    height: var(--beer-btn-height);
+    border-radius: 999px;
+    background: url("https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/05/BEER_BAR.webp") no-repeat center;
+    background-size: 100% 100%;
+    overflow: hidden;
+
+    /* Subtle drop shadow down-right when not ready */
+    box-shadow: 4px 6px 15px rgba(0, 0, 0, 0.16);
+
+    /* Normal state (when loading/disabled) */
+    cursor: wait !important;
+    transition: transform 0.3s ease, filter 0.3s ease, opacity 0.3s ease !important;
+  }
+
+  /* HOVER - CHỈ HOẠT ĐỘNG KHI ĐÃ SẴN SÀNG (is-ready) */
+  .beer-btn-shell.is-ready {
+    cursor: pointer !important;
+    animation: beerReadyPulse 1.6s ease-in-out infinite;
+  }
+
+  .beer-btn-shell.is-ready:hover {
+    transform: scale(1.03) !important;
+    filter: brightness(1.05) !important;
+  }
+
+  /* READY glow pulse */
+  @keyframes beerReadyPulse {
+    0%, 100% {
+      box-shadow: 4px 6px 15px rgba(0, 0, 0, 0.16), 0 0 0 2px rgba(198, 137, 34, 0.3), 0 6px 20px rgba(198, 137, 34, 0.4);
+    }
+    50% {
+      box-shadow: 4px 6px 15px rgba(0, 0, 0, 0.12), 0 0 0 4px rgba(244, 216, 119, 0.5), 0 8px 28px rgba(244, 216, 119, 0.6);
+    }
+  }
+
+  /* ERROR state */
+  .beer-btn-shell.is-error {
+    filter: grayscale(60%) brightness(0.85) !important;
+    cursor: not-allowed !important;
+    animation: none !important;
+  }
+  .beer-btn-shell.is-error:hover {
+    transform: none !important;
+    filter: grayscale(60%) brightness(0.85) !important;
+  }
+
+  /* HIDDEN state */
+  .beer-btn-shell.is-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(0.95);
+    display: none !important;
+  }
+
+  /* ============================
+     BEER IMAGE (with clip-path progress)
+  ============================ */
+  .beer-btn-beer {
+    position: absolute;
+    inset: 0;
+    background: url("https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/05/BEER_BAR_2.webp") no-repeat center;
+    background-size: 100% 100%;
+    pointer-events: none;
+    clip-path: inset(0 calc(100% - var(--beer-progress, 8%)) 0 0);
+    transition: clip-path 0.6s ease-in-out;
+    will-change: clip-path;
+  }
+
+  /* ============================
+     LABEL TEXT
+  ============================ */
+  .beer-btn-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .beer-btn-label span {
+    font-family: "Myriad Pro", "Myriat-Pro", "Myriad Web Pro", "Nunito", "Gill Sans", "Optima", "Segoe UI", sans-serif;
+    font-size: clamp(16px, 2.8vw, 24px);
+    font-weight: 900;
+    letter-spacing: 0.7px;
+    line-height: 1.1;
+    color: #1f1d53;
+    text-align: center;
+
+    text-shadow:
+      0 1px 0 rgba(255,255,255,0.95),
+      0 2px 4px rgba(255,255,255,0.55),
+      0 3px 8px rgba(0, 0, 0, 0.28),
+      0 -1px 2px rgba(254, 226, 129, 0.75);
+
+    -webkit-text-stroke: 0.45px rgba(255,255,255,0.75);
+    user-select: none;
+    transition: color 0.3s ease, transform 0.25s ease;
+  }
+
+  .beer-btn-shell.is-download-ready .beer-btn-label span {
+    font-size: clamp(17px, 3vw, 25px);
+    font-weight: 950;
+    letter-spacing: 1px;
+  }
+
+  /* ============================
+     TYPING DOTS ANIMATION
+  ============================ */
+  .beer-btn-dots {
+    display: inline-flex;
+    margin-left: 3px;
+    gap: 3px;
+    align-items: flex-end;
+    height: 1em;
+  }
+
+  .beer-btn-dots i {
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #1f1d53;
+    opacity: 0;
+    animation: dot-blink 1.4s ease-in-out infinite;
+  }
+  .beer-btn-dots i:nth-child(1) { animation-delay: 0s; }
+  .beer-btn-dots i:nth-child(2) { animation-delay: 0.2s; }
+  .beer-btn-dots i:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes dot-blink {
+    0%, 80%, 100% { opacity: 0; transform: scale(0.7); }
+    40%            { opacity: 1; transform: scale(1); }
+  }
+
+  /* Hide dots when ready/error */
+  .beer-btn-shell.is-ready  .beer-btn-dots,
+  .beer-btn-shell.is-error  .beer-btn-dots { display: none; }
+
+  /* ============================
+     CHECKMARK icon (visible when ready)
+  ============================ */
+  .beer-btn-check {
+    display: none;
+    margin-left: 8px;
+    font-size: 1.1em;
+    font-style: normal;
+  }
+  .beer-btn-shell.is-ready .beer-btn-check { display: inline; }
+</style>
+
+<!-- ===== MARKUP ===== -->
+<div id="btn-video-loading">
+  <div class="beer-btn-shell" id="_beer-shell">
+    
+    <!-- Beer image (with clip-path progress) -->
+    <div class="beer-btn-beer" id="_beer-beer"></div>
+
+    <!-- Label -->
+    <div class="beer-btn-label">
+      <span id="_beer-text">Video AI đang được tạo
+        <span class="beer-btn-dots">
+          <i></i><i></i><i></i>
+        </span>
+        <i class="beer-btn-check">✓</i>
+      </span>
+    </div>
+
+  </div>
+</div>

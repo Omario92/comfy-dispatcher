@@ -1,0 +1,453 @@
+<!-- =====================================================
+     NEW_LOADING_WIDGET — Combined Premium Loading (v5.0)
+     
+     Tích hợp 3 trong 1:
+       1. 3 Dấu mũi tên nhấp nháy xếp hàng ngang ở trên cùng.
+       2. Dòng chữ in hoa font ANTON to: "VIDEO AI ĐANG ĐƯỢC TẠO..." nằm ngoài thanh bia.
+       3. Thanh loading bar bia (BEER_BAR.webp & BEER_BAR_2.webp) không có chữ chạy đè, size giữ nguyên.
+     
+     Tự động đồng bộ 100% các trạng thái (loading -> ready -> error -> hidden)
+     thông qua patch trực tiếp vào window.beerBtn*
+===================================================== -->
+
+<style>
+  /* ============================
+     GOOGLE FONT & ICON IMPORT
+  ============================ */
+  @import url('https://fonts.googleapis.com/css2?family=Anton&family=Nunito:wght@700;900&display=swap');
+
+  /* ============================
+     VARIABLES
+  ============================ */
+  :root {
+    --beer-bar-width: min(680px, 96vw);
+    --beer-bar-height: 72px;
+    --arrow-size: 84px; /* Tăng kích thước từ 56px lên 84px để to rõ hơn */
+  }
+  @media (max-width: 480px) {
+    :root {
+      --beer-bar-height: 48px;
+      --arrow-size: 60px; /* Tăng kích thước từ 40px lên 60px ở Mobile */
+    }
+  }
+
+  /* ============================
+     MAIN CONTAINER
+  ============================ */
+  .new-loading-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    margin: 20px auto;
+    font-family: 'Nunito', sans-serif;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  .new-loading-container.is-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(10px);
+    display: none !important;
+  }
+
+  .new-loading-container.is-error {
+    opacity: 0.55;
+    filter: grayscale(60%);
+  }
+
+  /* ============================
+     3 HORIZONTAL ARROWS
+  ============================ */
+  .new-arrows-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 25px;
+    margin-bottom: 5px;
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  
+  @media (max-width: 480px) {
+    .new-arrows-row {
+      gap: 15px;
+    }
+  }
+
+  .new-arrow-item {
+    width: var(--arrow-size);
+    height: var(--arrow-size);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.4s ease;
+  }
+
+  /* Pulse nhấp nháy gợn sóng giữa 3 mũi tên */
+  .new-arrow-item svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 3px 8px rgba(255, 179, 0, 0.45));
+  }
+
+  /* Bounce loop nhịp nhàng khi loading */
+  @keyframes arrowLoadingBounce {
+    0%, 100% { transform: translateY(0px); }
+    50%      { transform: translateY(8px); }
+  }
+  
+  .new-loading-container.is-loading-state .new-arrow-item {
+    animation: arrowLoadingBounce 0.9s ease-in-out infinite;
+  }
+  .new-loading-container.is-loading-state .new-arrow-item:nth-child(1) { animation-delay: 0s; }
+  .new-loading-container.is-loading-state .new-arrow-item:nth-child(2) { animation-delay: 0.2s; }
+  .new-loading-container.is-loading-state .new-arrow-item:nth-child(3) { animation-delay: 0.4s; }
+
+  /* Bounce mạnh mẽ khi ready thu hút tải về */
+  @keyframes arrowReadyBounce {
+    0%, 100% { transform: translateY(0px) scale(1); }
+    50%      { transform: translateY(15px) scale(1.15); }
+  }
+  .new-loading-container.is-ready-state .new-arrow-item {
+    animation: arrowReadyBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) infinite;
+  }
+  .new-loading-container.is-ready-state .new-arrow-item:nth-child(1) { animation-delay: 0s; }
+  .new-loading-container.is-ready-state .new-arrow-item:nth-child(2) { animation-delay: 0.15s; }
+  .new-loading-container.is-ready-state .new-arrow-item:nth-child(3) { animation-delay: 0.3s; }
+
+  /* ============================
+     ANTON LARGE UPPERCASE TEXT
+  ============================ */
+  .new-anton-title {
+    font-family: 'Anton', sans-serif;
+    font-size: clamp(26px, 4.8vw, 42px);
+    text-transform: uppercase;
+    color: #ffffff;
+    text-align: center;
+    margin: 10px 0 25px 0;
+    letter-spacing: 2px;
+    line-height: 1.15;
+    
+    text-shadow:
+      0 2px 4px rgba(0, 0, 0, 0.6),
+      0 4px 15px rgba(0, 0, 0, 0.4),
+      0 0 12px rgba(255, 179, 0, 0.25);
+      
+    user-select: none;
+    transition: color 0.3s ease;
+  }
+
+  /* Nhấp nháy nhẹ kích thích sự tò mò khi loading */
+  @keyframes textLoadingGlow {
+    0%, 100% { opacity: 1; text-shadow: 0 2px 4px rgba(0,0,0,0.6), 0 0 10px rgba(255, 179, 0, 0.2); }
+    50%      { opacity: 0.88; text-shadow: 0 2px 4px rgba(0,0,0,0.6), 0 0 18px rgba(255, 179, 0, 0.55); }
+  }
+  .new-loading-container.is-loading-state .new-anton-title {
+    animation: textLoadingGlow 1.8s ease-in-out infinite;
+  }
+
+  /* Đổi màu và pulse mạnh khi ready */
+  @keyframes textReadyGlow {
+    0%, 100% { transform: scale(1); color: #ffffff; text-shadow: 0 2px 4px rgba(0,0,0,0.6), 0 0 15px rgba(255, 179, 0, 0.6); }
+    50%      { transform: scale(1.02); color: #FFD54F; text-shadow: 0 2px 4px rgba(0,0,0,0.6), 0 0 25px rgba(255, 179, 0, 0.9); }
+  }
+  .new-loading-container.is-ready-state .new-anton-title {
+    animation: textReadyGlow 1.4s ease-in-out infinite;
+  }
+
+  /* 3 chấm chuyển động nhấp nháy */
+  .typing-dots {
+    display: inline-flex;
+    gap: 3px;
+    margin-left: 2px;
+  }
+  .typing-dots span {
+    display: inline-block;
+    animation: dot-blink 1.4s infinite;
+    opacity: 0;
+  }
+  .typing-dots span:nth-child(1) { animation-delay: 0s; }
+  .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes dot-blink {
+    0%, 80%, 100% { opacity: 0; }
+    40%            { opacity: 1; }
+  }
+
+  /* ============================
+     SILENT BEER LOADING BAR (No text overlay)
+  ============================ */
+  .beer-bar-shell {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--beer-bar-width);
+    height: var(--beer-bar-height);
+    border-radius: 999px;
+    background: url("https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/05/BEER_BAR.webp") no-repeat center;
+    background-size: 100% 100%;
+    overflow: hidden;
+    box-shadow: 4px 6px 15px rgba(0, 0, 0, 0.16);
+    cursor: wait !important;
+    transition: transform 0.3s ease, filter 0.3s ease, opacity 0.3s ease !important;
+  }
+
+  /* HOVER KHI READY */
+  .new-loading-container.is-ready-state .beer-bar-shell {
+    cursor: pointer !important;
+    animation: beerGlowPulse 1.6s ease-in-out infinite;
+  }
+
+  .new-loading-container.is-ready-state .beer-bar-shell:hover {
+    transform: scale(1.03) !important;
+    filter: brightness(1.05) !important;
+  }
+
+  @keyframes beerGlowPulse {
+    0%, 100% {
+      box-shadow: 4px 6px 15px rgba(0, 0, 0, 0.16), 0 0 0 2px rgba(198, 137, 34, 0.3), 0 6px 20px rgba(198, 137, 34, 0.4);
+    }
+    50% {
+      box-shadow: 4px 6px 15px rgba(0, 0, 0, 0.12), 0 0 0 4px rgba(244, 216, 119, 0.5), 0 8px 28px rgba(244, 216, 119, 0.6);
+    }
+  }
+
+  /* Beer Fill image (progress) */
+  .beer-bar-fill {
+    position: absolute;
+    inset: 0;
+    background: url("https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/05/BEER_BAR_2.webp") no-repeat center;
+    background-size: 100% 100%;
+    pointer-events: none;
+    clip-path: inset(0 calc(100% - var(--beer-progress, 8%)) 0 0);
+    transition: clip-path 0.6s ease-in-out;
+    will-change: clip-path;
+  }
+</style>
+
+<!-- ============================
+     HTML MARKUP
+================================ -->
+<div class="new-loading-container is-loading-state" id="newLoadingWidget">
+  
+  <!-- 3 Horizontal Bouncing Arrows -->
+  <div class="new-arrows-row">
+    <!-- Arrow 1 -->
+    <div class="new-arrow-item">
+      <svg fill="none" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+        <g opacity="0.1"><animate repeatCount="indefinite" attributeName="opacity" dur="0.9s" begin="0.0s" calcMode="spline" values="0; 0.1; 0.3; 1; 0.3" keyTimes="0; 0.07; 0.46; 0.71; 1" keySplines="0.28 0.04 0.61 0.92; 0.21 0.11 0.68 1; 0.33 0 0.66 1; 0.33 0 0.66 1" fill="freeze" /><g transform="translate(249.7,327.5)"><path fill="#FFB300" d="M-0.004,45.495C-3.822,45.495,-7.638,44.14,-10.543,41.428L-84.826,-28.112C-88.875,-31.903,-89.088,-38.261,-85.299,-42.313C-81.511,-46.365,-75.156,-46.575,-71.107,-42.786L0,23.782L71.107,-42.786C75.158,-46.575,81.509,-46.365,85.299,-42.313C89.087,-38.261,88.876,-31.903,84.826,-28.112L10.555,41.418C7.641,44.137,3.817,45.495,-0.004,45.495Z" /></g></g>
+        <g opacity="0.1"><animate repeatCount="indefinite" attributeName="opacity" dur="0.5s" begin="0.1s" calcMode="spline" values="0; 0.1; 0.3; 1; 0.3" keyTimes="0; 0.2; 0.6; 0.73; 1" keySplines="0.24 0.09 0.59 0.79; 0.25 0.12 0.69 1; 0.33 0 0.66 1; 0.33 0 0.66 1" fill="freeze" /><g transform="translate(249.7,249.6)"><path fill="#FFB300" d="M-0.004,45.496C-3.822,45.496,-7.638,44.14,-10.543,41.428L-84.826,-28.112C-88.875,-31.903,-89.088,-38.26,-85.299,-42.312C-81.511,-46.365,-75.156,-46.577,-71.107,-42.785L0,23.782L71.107,-42.785C75.158,-46.576,81.509,-46.363,85.299,-42.312C89.087,-38.26,88.876,-31.903,84.826,-28.112L10.555,41.418C7.641,44.137,3.817,45.496,-0.004,45.496Z" /></g></g>
+        <g opacity="1"><animate repeatCount="indefinite" attributeName="opacity" dur="0.86s" begin="0.2s" calcMode="spline" values="1; 0.1; 0.3" keyTimes="0; 0.3; 1" keySplines="0.33 0 0.77 0.98; 0.24 0.2 0.83 1" fill="freeze" /><g transform="translate(249.7,171.8)"><path fill="#FFB300" d="M-0.004,45.496C-3.822,45.496,-7.637,44.14,-10.542,41.43L-84.826,-28.112C-88.875,-31.903,-89.088,-38.261,-85.299,-42.313C-81.511,-46.366,-75.156,-46.576,-71.107,-42.785L0,23.782L71.107,-42.785C75.157,-46.575,81.508,-46.365,85.299,-42.313C89.087,-38.261,88.876,-31.903,84.826,-28.112L10.555,41.418C7.64,44.137,3.817,45.496,-0.004,45.496Z" /></g></g>
+      </svg>
+    </div>
+    
+    <!-- Arrow 2 -->
+    <div class="new-arrow-item">
+      <svg fill="none" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+        <g opacity="0.1"><animate repeatCount="indefinite" attributeName="opacity" dur="0.9s" begin="0.15s" calcMode="spline" values="0; 0.1; 0.3; 1; 0.3" keyTimes="0; 0.07; 0.46; 0.71; 1" keySplines="0.28 0.04 0.61 0.92; 0.21 0.11 0.68 1; 0.33 0 0.66 1; 0.33 0 0.66 1" fill="freeze" /><g transform="translate(249.7,327.5)"><path fill="#FFB300" d="M-0.004,45.495C-3.822,45.495,-7.638,44.14,-10.543,41.428L-84.826,-28.112C-88.875,-31.903,-89.088,-38.261,-85.299,-42.313C-81.511,-46.365,-75.156,-46.575,-71.107,-42.786L0,23.782L71.107,-42.786C75.158,-46.575,81.509,-46.365,85.299,-42.313C89.087,-38.261,88.876,-31.903,84.826,-28.112L10.555,41.418C7.641,44.137,3.817,45.495,-0.004,45.495Z" /></g></g>
+        <g opacity="0.1"><animate repeatCount="indefinite" attributeName="opacity" dur="0.5s" begin="0.25s" calcMode="spline" values="0; 0.1; 0.3; 1; 0.3" keyTimes="0; 0.2; 0.6; 0.73; 1" keySplines="0.24 0.09 0.59 0.79; 0.25 0.12 0.69 1; 0.33 0 0.66 1; 0.33 0 0.66 1" fill="freeze" /><g transform="translate(249.7,249.6)"><path fill="#FFB300" d="M-0.004,45.496C-3.822,45.496,-7.638,44.14,-10.543,41.428L-84.826,-28.112C-88.875,-31.903,-89.088,-38.26,-85.299,-42.312C-81.511,-46.365,-75.156,-46.577,-71.107,-42.785L0,23.782L71.107,-42.785C75.158,-46.576,81.509,-46.363,85.299,-42.312C89.087,-38.26,88.876,-31.903,84.826,-28.112L10.555,41.418C7.641,44.137,3.817,45.496,-0.004,45.496Z" /></g></g>
+        <g opacity="1"><animate repeatCount="indefinite" attributeName="opacity" dur="0.86s" begin="0.35s" calcMode="spline" values="1; 0.1; 0.3" keyTimes="0; 0.3; 1" keySplines="0.33 0 0.77 0.98; 0.24 0.2 0.83 1" fill="freeze" /><g transform="translate(249.7,171.8)"><path fill="#FFB300" d="M-0.004,45.496C-3.822,45.496,-7.637,44.14,-10.542,41.43L-84.826,-28.112C-88.875,-31.903,-89.088,-38.261,-85.299,-42.313C-81.511,-46.366,-75.156,-46.576,-71.107,-42.785L0,23.782L71.107,-42.785C75.157,-46.575,81.508,-46.365,85.299,-42.313C89.087,-38.261,88.876,-31.903,84.826,-28.112L10.555,41.418C7.64,44.137,3.817,45.496,-0.004,45.496Z" /></g></g>
+      </svg>
+    </div>
+    
+    <!-- Arrow 3 -->
+    <div class="new-arrow-item">
+      <svg fill="none" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+        <g opacity="0.1"><animate repeatCount="indefinite" attributeName="opacity" dur="0.9s" begin="0.30s" calcMode="spline" values="0; 0.1; 0.3; 1; 0.3" keyTimes="0; 0.07; 0.46; 0.71; 1" keySplines="0.28 0.04 0.61 0.92; 0.21 0.11 0.68 1; 0.33 0 0.66 1; 0.33 0 0.66 1" fill="freeze" /><g transform="translate(249.7,327.5)"><path fill="#FFB300" d="M-0.004,45.495C-3.822,45.495,-7.638,44.14,-10.543,41.428L-84.826,-28.112C-88.875,-31.903,-89.088,-38.261,-85.299,-42.313C-81.511,-46.365,-75.156,-46.575,-71.107,-42.786L0,23.782L71.107,-42.786C75.158,-46.575,81.509,-46.365,85.299,-42.313C89.087,-38.261,88.876,-31.903,84.826,-28.112L10.555,41.418C7.641,44.137,3.817,45.495,-0.004,45.495Z" /></g></g>
+        <g opacity="0.1"><animate repeatCount="indefinite" attributeName="opacity" dur="0.5s" begin="0.40s" calcMode="spline" values="0; 0.1; 0.3; 1; 0.3" keyTimes="0; 0.2; 0.6; 0.73; 1" keySplines="0.24 0.09 0.59 0.79; 0.25 0.12 0.69 1; 0.33 0 0.66 1; 0.33 0 0.66 1" fill="freeze" /><g transform="translate(249.7,249.6)"><path fill="#FFB300" d="M-0.004,45.496C-3.822,45.496,-7.638,44.14,-10.543,41.428L-84.826,-28.112C-88.875,-31.903,-89.088,-38.26,-85.299,-42.312C-81.511,-46.365,-75.156,-46.577,-71.107,-42.785L0,23.782L71.107,-42.785C75.158,-46.576,81.509,-46.363,85.299,-42.312C89.087,-38.26,88.876,-31.903,84.826,-28.112L10.555,41.418C7.641,44.137,3.817,45.496,-0.004,45.496Z" /></g></g>
+        <g opacity="1"><animate repeatCount="indefinite" attributeName="opacity" dur="0.86s" begin="0.50s" calcMode="spline" values="1; 0.1; 0.3" keyTimes="0; 0.3; 1" keySplines="0.33 0 0.77 0.98; 0.24 0.2 0.83 1" fill="freeze" /><g transform="translate(249.7,171.8)"><path fill="#FFB300" d="M-0.004,45.496C-3.822,45.496,-7.637,44.14,-10.542,41.43L-84.826,-28.112C-88.875,-31.903,-89.088,-38.261,-85.299,-42.313C-81.511,-46.366,-75.156,-46.576,-71.107,-42.785L0,23.782L71.107,-42.785C75.157,-46.575,81.508,-46.365,85.299,-42.313C89.087,-38.261,88.876,-31.903,84.826,-28.112L10.555,41.418C7.64,44.137,3.817,45.496,-0.004,45.496Z" /></g></g>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Anton Large Uppercase Text -->
+  <h2 class="new-anton-title" id="newAntonText">
+    VIDEO AI ĐANG ĐƯỢC TẠO
+    <span class="typing-dots" id="newTextDots">
+      <span>.</span><span>.</span><span>.</span>
+    </span>
+  </h2>
+
+  <!-- Silent Beer Loading Bar -->
+  <div class="beer-bar-shell" id="newBeerShell">
+    <div class="beer-bar-fill" id="newBeerFill"></div>
+  </div>
+
+</div>
+
+<!-- ============================
+     DYNAMIC JS CONTROL
+================================ -->
+<script>
+(function () {
+  var _state = 'loading'; // 'loading' | 'ready' | 'error' | 'hidden'
+  
+  var widget = document.getElementById('newLoadingWidget');
+  var textEl = document.getElementById('newAntonText');
+  var dotsEl = document.getElementById('newTextDots');
+  var fill   = document.getElementById('newBeerFill');
+  var shell  = document.getElementById('newBeerShell');
+
+  // Cập nhật giao diện nội bộ dựa theo trạng thái
+  function applyState(state) {
+    if (_state === state) return;
+    console.log("[beer-arrows-widget] transition from", _state, "to", state);
+    _state = state;
+
+    // Reset classes
+    widget.className = 'new-loading-container';
+
+    switch (state) {
+      case 'loading':
+        widget.classList.add('is-loading-state');
+        textEl.innerHTML = 'VIDEO AI ĐANG ĐƯỢC TẠO<span class="typing-dots" id="newTextDots"><span>.</span><span>.</span><span>.</span></span>';
+        widget.style.display = '';
+        widget.style.opacity = '1';
+        break;
+
+      case 'ready':
+        widget.classList.add('is-ready-state');
+        // progress lên 100%
+        widget.style.setProperty('--beer-progress', '100%');
+        textEl.innerHTML = 'VIDEO ĐÃ SẴN SÀNG ✓';
+        widget.style.display = '';
+        widget.style.opacity = '1';
+        break;
+
+      case 'error':
+        widget.classList.add('is-error');
+        textEl.innerHTML = '⚠️ LỖI KHỞI TẠO VIDEO';
+        widget.style.display = '';
+        widget.style.opacity = '0.55';
+        break;
+
+      case 'hidden':
+        widget.classList.add('is-hidden');
+        widget.style.display = 'none';
+        widget.style.opacity = '0';
+        break;
+    }
+  }
+
+  // Lắng nghe sự thay đổi progress (clip-path) của bia
+  // Đồng bộ với biến CSS --beer-progress
+  function setProgress(val) {
+    if (_state === 'ready') return;
+    widget.style.setProperty('--beer-progress', val + '%');
+  }
+
+  /* ── Hook patch vào các hàm beer button của WordPress ── */
+  function patchBeerBtn() {
+    // 1. Wrap Reset
+    if (window.beerBtnReset && !window.beerBtnReset._patchedCombined) {
+      var orig = window.beerBtnReset;
+      window.beerBtnReset = function () {
+        orig.apply(this, arguments);
+        applyState('loading');
+        setProgress(8);
+      };
+      window.beerBtnReset._patchedCombined = true;
+    }
+
+    // 2. Wrap Complete
+    if (window.beerBtnComplete && !window.beerBtnComplete._patchedCombined) {
+      var origC = window.beerBtnComplete;
+      window.beerBtnComplete = function () {
+        origC.apply(this, arguments);
+        applyState('ready');
+      };
+      window.beerBtnComplete._patchedCombined = true;
+    }
+
+    // 3. Wrap Error
+    if (window.beerBtnError && !window.beerBtnError._patchedCombined) {
+      var origE = window.beerBtnError;
+      window.beerBtnError = function () {
+        origE.apply(this, arguments);
+        applyState('error');
+      };
+      window.beerBtnError._patchedCombined = true;
+    }
+
+    // 4. Wrap Hide
+    if (window.beerBtnHide && !window.beerBtnHide._patchedCombined) {
+      var origH = window.beerBtnHide;
+      window.beerBtnHide = function () {
+        origH.apply(this, arguments);
+        applyState('hidden');
+      };
+      window.beerBtnHide._patchedCombined = true;
+    }
+
+    // 5. Wrap Show
+    if (window.beerBtnShow && !window.beerBtnShow._patchedCombined) {
+      var origS = window.beerBtnShow;
+      window.beerBtnShow = function () {
+        origS.apply(this, arguments);
+        applyState('loading');
+      };
+      window.beerBtnShow._patchedCombined = true;
+    }
+
+    // Capture progress updates dynamically if frontend updates CSS variables on other elements
+    // Bằng cách lắng nghe sự thay đổi của CSS variable hoặc monkey patch một timer nhẹ
+    return !!(
+      window.beerBtnReset    && window.beerBtnReset._patchedCombined    &&
+      window.beerBtnComplete && window.beerBtnComplete._patchedCombined &&
+      window.beerBtnError    && window.beerBtnError._patchedCombined    &&
+      window.beerBtnHide     && window.beerBtnHide._patchedCombined
+    );
+  }
+
+  // Polling để cập nhật progress trị số dâng lên từ CSS variable --beer-progress của shell thật
+  var lastProg = 8;
+  setInterval(function () {
+    // Thử đọc progress từ shell gốc (nếu còn nằm đâu đó trên DOM)
+    var origShell = document.getElementById('_beer-shell');
+    if (origShell && _state === 'loading') {
+      var progVal = window.getComputedStyle(origShell).getPropertyValue('--beer-progress');
+      if (progVal) {
+        var num = parseInt(progVal);
+        if (!isNaN(num) && num !== lastProg) {
+          lastProg = num;
+          setProgress(num);
+        }
+      }
+    }
+  }, 100);
+
+  // Poll hook
+  var attempts = 0;
+  var timer = setInterval(function () {
+    attempts++;
+    var ok = patchBeerBtn();
+    
+    // Auto sync state ban đầu nếu đã có
+    var st = window.faceswapState;
+    if (st && (st.videoUrl || st.imageResult) && _state === 'loading') {
+      applyState('ready');
+    }
+    
+    if (ok || attempts > 100) {
+      clearInterval(timer);
+    }
+  }, 200);
+
+  // Hook ngay lập tức
+  patchBeerBtn();
+
+  // Thêm sự kiện Click cho thanh loading bia để kích hoạt click thật của nút cũ
+  shell.addEventListener('click', function() {
+    if (_state === 'ready') {
+      var origShell = document.getElementById('_beer-shell');
+      if (origShell) {
+        origShell.click(); // chuyển tiếp sự kiện Click
+      }
+    }
+  });
+
+})();
+</script>

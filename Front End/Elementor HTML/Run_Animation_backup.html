@@ -1,0 +1,419 @@
+<!-- =====================================================
+     RUN_ANIMATION — Sprite Sheet v3.1 (sprite_2.webp, 146 frames)
+     3 Phase animation đồng bộ với Beer Button:
+
+     Phase RUN   (frames  1–29,  index 0–28)  : Loop liên tục khi loading
+     Phase STOP  (frames 31–123, index 30–122): Chạy 1 lần từ frame hiện tại
+                                                 → frame 122, không loop
+     Phase CHEER (frames 124–146,index 123–145): Loop liên tục khi complete
+
+     Trạng thái sprite → beer button:
+       loading  → RUN loop  (FPS=24)
+       ready    → STOP transition → CHEER loop (FPS=18) + bounce CSS
+       error    → dừng + grayscale
+       hidden   → ẩn container
+===================================================== -->
+
+<style>
+.sprite-js-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding: 0 2px 2px;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.sprite-js-container.sprite-hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(6px);
+  display: none !important;
+}
+
+.sprite-js-container.sprite-error {
+  opacity: 0.3;
+  filter: grayscale(80%);
+  pointer-events: none;
+}
+
+#spriteCanvas {
+  width: 84px; /* Tăng kích thước thêm 50% từ 56px lên 84px */
+  height: 84px;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  transition: filter 0.5s ease;
+}
+
+/* Bounce loop khi cheer / video sẵn sàng */
+@keyframes spriteCheerBounce {
+  0%, 100% { transform: translateY(0px); }
+  30%       { transform: translateY(-15px); } /* Tỷ lệ bounce cũng tăng 50% để sinh động */
+  60%       { transform: translateY(-6px); }
+}
+#spriteCanvas.is-cheer-anim {
+  animation: spriteCheerBounce 0.9s ease-in-out infinite;
+}
+
+/* Mũi tên chỉ xuống bên phải để gợi ý download */
+.sprite-arrow-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0; /* Đưa sát về bên trái hơn */
+  opacity: 1;
+  transform: translateY(4px) scale(1.4); /* Dịch xuống 10px so với vị trí cũ (-6px thành 4px) và phóng to 1.4 lần */
+  transition: opacity 0.4s ease, transform 0.4s ease;
+  width: 96px; /* Tăng kích thước thêm 50% từ 64px lên 96px */
+  height: 96px;
+  flex-shrink: 0; /* Ngăn chặn co rúm về 0 trong flex layout */
+  margin-bottom: 12px; /* căn chỉnh giữa canvas chạy */
+}
+
+.sprite-arrow-wrapper.show-arrow {
+  opacity: 1 !important; /* Đảm bảo giá trị này không bị ghi đè */
+  animation: arrowBounce 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes arrowBounce {
+  0%   { transform: translateY(2px) scale(1.4); } /* Bouncing khớp với scale(1.4) */
+  100% { transform: translateY(18px) scale(1.4); } /* Tăng biên độ bounce lên 50% tương ứng */
+}
+
+.sprite-arrow-svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 2px 6px rgba(255, 200, 59, 0.5));
+}
+
+#Layer\ 1 {
+  display: none !important;
+}
+</style>
+
+<div class="sprite-js-container" id="spriteContainer">
+  <canvas id="spriteCanvas" width="96" height="96"></canvas>
+  <div class="sprite-arrow-wrapper" id="arrowWrapper">
+    <svg class="sprite-arrow-svg" fill="none" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+      <!-- Layer 1 (phần nền trắng) đã được hiển thị lại -->
+      <g transform="matrix(1,0,0,1,249.792,249.686)" id="Layer 1">
+        <g id="Group 1">
+          <path fill="#ffffff" fill-opacity="1" d="M162.493,174.314L-162.493,174.314C-168.963,174.314,-174.208,169.07,-174.208,162.6L-174.208,-162.599C-174.208,-169.069,-168.963,-174.314,-162.493,-174.314L162.493,-174.314C168.963,-174.314,174.208,-169.069,174.208,-162.599L174.208,162.6C174.208,169.07,168.963,174.314,162.493,174.314Z" />
+        </g>
+      </g>
+      <g opacity="0.1" id="Layer 2">
+        <animate repeatCount="indefinite" attributeName="opacity" dur="0.934267598216161s" begin="0.03336669867431323s" calcMode="spline" values="0; 0.1; 0.3; 1; 0.3" keyTimes="0; 0.071; 0.464; 0.714; 1" keySplines="0.284 0.046 0.619 0.924; 0.215 0.118 0.68 1; 0.333 0 0.667 1; 0.333 0 0.667 1" fill="freeze" />
+        <g transform="translate(249.792,327.55) scale(1,1) translate(0,0)">
+          <g id="Group 1">
+            <!-- Đổi màu mũi tên thành vàng cam (#FFB300) -->
+            <path fill="#1f1d53" fill-opacity="1" d="M-0.004,45.495C-3.822,45.495,-7.638,44.14,-10.543,41.428L-84.826,-28.112C-88.875,-31.903,-89.088,-38.261,-85.299,-42.313C-81.511,-46.365,-75.156,-46.575,-71.107,-42.786L0,23.782L71.107,-42.786C75.158,-46.575,81.509,-46.365,85.299,-42.313C89.087,-38.261,88.876,-31.903,84.826,-28.112L10.555,41.418C7.641,44.137,3.817,45.495,-0.004,45.495Z" />
+          </g>
+        </g>
+      </g>
+      <g opacity="0.1" id="Layer 3">
+        <animate repeatCount="indefinite" attributeName="opacity" dur="0.5005004964233397s" begin="0s" calcMode="spline" values="0; 0.1; 0.3; 1; 0.3" keyTimes="0; 0.2; 0.6; 0.733; 1" keySplines="0.249 0.093 0.591 0.796; 0.254 0.127 0.69 1; 0.333 0 0.667 1; 0.333 0 0.667 1" fill="freeze" />
+        <g transform="translate(249.792,249.686) scale(1,1) translate(0,0)">
+          <g id="Group 1">
+            <!-- Đổi màu mũi tên thành vàng cam (#FFB300) -->
+            <path fill="#1f1d53" fill-opacity="1" d="M-0.004,45.496C-3.822,45.496,-7.638,44.14,-10.543,41.428L-84.826,-28.112C-88.875,-31.903,-89.088,-38.26,-85.299,-42.312C-81.511,-46.365,-75.156,-46.577,-71.107,-42.785L0,23.782L71.107,-42.785C75.158,-46.576,81.509,-46.363,85.299,-42.312C89.087,-38.26,88.876,-31.903,84.826,-28.112L10.555,41.418C7.641,44.137,3.817,45.496,-0.004,45.496Z" />
+          </g>
+        </g>
+      </g>
+      <g opacity="1" id="Layer 4">
+        <animate repeatCount="indefinite" attributeName="opacity" dur="0.8675342008675346s" begin="0.10010009602293969s" calcMode="spline" values="1; 0.1; 0.3" keyTimes="0; 0.308; 1" keySplines="0.333 0 0.778 0.982; 0.246 0.204 0.833 1" fill="freeze" />
+        <g transform="translate(249.792,171.823) scale(1,1) translate(0,0)">
+          <g id="Group 1">
+            <!-- Đổi màu mũi tên thành vàng cam (#FFB300) -->
+            <path fill="#1f1d53" fill-opacity="1" d="M-0.004,45.496C-3.822,45.496,-7.637,44.14,-10.542,41.43L-84.826,-28.112C-88.875,-31.903,-89.088,-38.261,-85.299,-42.313C-81.511,-46.366,-75.156,-46.576,-71.107,-42.785L0,23.782L71.107,-42.785C75.157,-46.575,81.508,-46.365,85.299,-42.313C89.087,-38.261,88.876,-31.903,84.826,-28.112L10.555,41.418C7.64,44.137,3.817,45.496,-0.004,45.496Z" />
+          </g>
+        </g>
+      </g>
+    </svg>
+  </div>
+</div>
+
+<script>
+(function () {
+  /* ── Sprite Sheet Config ── */
+  var SPRITE_SRC   = 'https://biatuoi-halida.com/wp-content/uploads/sites/2/2026/05/sprite_2.webp';
+  var COLS         = 10;         // Số cột trong sprite sheet
+  var TOTAL_FRAMES = 146;        // Tổng số frames
+  var FRAME_W      = 96;         // 960px / 10 cols
+  var FRAME_H      = 96;         // 1440px / 15 rows
+
+  /* ── Frame Ranges (0-based index) ── */
+  var RUN_START    = 0;          // frame 1  (user) → index 0
+  var RUN_END      = 28;         // frame 30 (user) → index 29
+  var STOP_END     = 122;        // frame 123(user) → index 122
+  var CHEER_START  = 123;        // frame 124(user) → index 123
+  var CHEER_END    = 145;        // frame 146(user) → index 145
+
+  /* ── FPS ── */
+  var FPS_RUN      = 30;         // Tốc độ chạy
+  var FPS_STOP     = 30;         // Tốc độ chuyển tiếp dừng
+  var FPS_CHEER    = 24;         // Tốc độ ăn mừng
+
+  /* ── State ── */
+  // phase: 'run' | 'stop' | 'cheer' | 'error' | 'hidden'
+  var _phase       = 'run';
+  var _fps         = FPS_RUN;
+  var _paused      = false;
+  var _state       = 'loading';  // 'loading' | 'ready' | 'error' | 'hidden'
+
+  /* ── DOM Refs ── */
+  var canvas       = document.getElementById('spriteCanvas');
+  var ctx          = canvas.getContext('2d');
+  var container    = document.getElementById('spriteContainer');
+
+  /* ── Image Load ── */
+  var img          = new Image();
+  img.crossOrigin  = 'anonymous';
+
+  var currentFrame = RUN_START;
+  var lastTime     = 0;
+  var rafId        = null;
+
+  img.onload = function () {
+    drawFrame(currentFrame);
+    rafId = requestAnimationFrame(tick);
+  };
+  img.src = SPRITE_SRC;
+
+  /* ── Draw a specific frame ── */
+  function drawFrame(frameIndex) {
+    var col = frameIndex % COLS;
+    var row = Math.floor(frameIndex / COLS);
+    ctx.clearRect(0, 0, FRAME_W, FRAME_H);
+    ctx.drawImage(img, col * FRAME_W, row * FRAME_H, FRAME_W, FRAME_H, 0, 0, FRAME_W, FRAME_H);
+  }
+
+  /* ── Animation Loop ── */
+  function tick(timestamp) {
+    if (!_paused) {
+      var frameDuration = 1000 / _fps;
+      if (timestamp - lastTime >= frameDuration) {
+        lastTime = timestamp;
+        advanceFrame();
+      }
+    }
+    rafId = requestAnimationFrame(tick);
+  }
+
+  /* ── Frame Advance Logic ── */
+  function advanceFrame() {
+    drawFrame(currentFrame);
+
+    switch (_phase) {
+      case 'run':
+        // Loop trong khoảng RUN_START → RUN_END
+        currentFrame++;
+        if (currentFrame > RUN_END) {
+          currentFrame = RUN_START;
+        }
+        break;
+
+      case 'stop':
+        // Chạy 1 lần từ frame hiện tại → STOP_END, rồi chuyển sang cheer
+        if (currentFrame < STOP_END) {
+          currentFrame++;
+        } else {
+          // Đã đến frame 123, bắt đầu Cheer
+          _phase       = 'cheer';
+          _fps         = FPS_CHEER;
+          currentFrame = CHEER_START;
+          // Bật bounce CSS
+          canvas.classList.add('is-cheer-anim');
+          var arrow = document.getElementById('arrowWrapper');
+          if (arrow) {
+            arrow.classList.add('show-arrow');
+            console.log("[sprite-arrow-debug] STOP frame transition complete, force-added show-arrow");
+          }
+        }
+        break;
+
+      case 'cheer':
+        // Loop trong khoảng CHEER_START → CHEER_END
+        currentFrame++;
+        if (currentFrame > CHEER_END) {
+          currentFrame = CHEER_START;
+        }
+        break;
+    }
+  }
+
+  /* ── setState: API chính ── */
+  function setState(newState) {
+    if (_state === newState) return;
+    console.log("[sprite-arrow-debug] setState: transition from", _state, "to", newState);
+    _state = newState;
+
+    var arrow = document.getElementById('arrowWrapper');
+    console.log("[sprite-arrow-debug] arrowWrapper element found:", !!arrow);
+
+    switch (newState) {
+
+      case 'loading':
+        // Phase RUN: Loop frames 1-27
+        _phase       = 'run';
+        _fps         = FPS_RUN;
+        _paused      = false;
+        // Reset về RUN nếu đang ở ngoài vùng run
+        if (currentFrame < RUN_START || currentFrame > RUN_END) {
+          currentFrame = RUN_START;
+        }
+        container.classList.remove('sprite-hidden', 'sprite-error');
+        canvas.classList.remove('is-cheer-anim');
+        canvas.style.filter = '';
+        container.style.display   = '';
+        container.style.opacity   = '1';
+        
+        if (arrow) {
+          arrow.classList.remove('show-arrow');
+          console.log("[sprite-arrow-debug] removed show-arrow class");
+        }
+        break;
+
+      case 'ready':
+        // Phase STOP: chạy từ frame hiện tại → 123, rồi tự động sang CHEER
+        // Không reset currentFrame — tiếp tục từ đúng vị trí đang chạy
+        _phase       = 'stop';
+        _fps         = FPS_STOP;
+        _paused      = false;
+        // Đảm bảo frame đang nằm trong vùng hợp lệ để transition
+        // Nếu frame hiện tại đã qua STOP_END thì nhảy thẳng vào cheer
+        if (currentFrame > STOP_END) {
+          _phase       = 'cheer';
+          _fps         = FPS_CHEER;
+          currentFrame = CHEER_START;
+          canvas.classList.add('is-cheer-anim');
+        } else {
+          canvas.classList.remove('is-cheer-anim');
+        }
+        container.classList.remove('sprite-hidden', 'sprite-error');
+        canvas.style.filter = '';
+        container.style.display = '';
+        container.style.opacity = '1';
+        if (arrow) {
+          arrow.classList.add('show-arrow');
+          console.log("[sprite-arrow-debug] added show-arrow class");
+        }
+        break;
+
+      case 'error':
+        // Dừng hẳn + mờ dần grayscale
+        _paused = true;
+        container.classList.add('sprite-error');
+        container.classList.remove('sprite-hidden');
+        canvas.classList.remove('is-cheer-anim');
+        if (arrow) {
+          arrow.classList.remove('show-arrow');
+          console.log("[sprite-arrow-debug] error state: removed show-arrow class");
+        }
+        break;
+
+      case 'hidden':
+        // Ẩn cùng beer button
+        _paused = true;
+        container.classList.add('sprite-hidden');
+        canvas.classList.remove('is-cheer-anim');
+        if (arrow) {
+          arrow.classList.remove('show-arrow');
+          console.log("[sprite-arrow-debug] hidden state: removed show-arrow class");
+        }
+        break;
+    }
+  }
+
+  /* ── Hook vào window.beerBtn* từ frontend_script.html ─────────
+     Do 2 widget Elementor load độc lập (thứ tự không đảm bảo),
+     dùng polling nhẹ để wrap sau khi frontend_script init xong.
+  ───────────────────────────────────────────────────────────── */
+  function patchBeerBtnFunctions() {
+    // Wrap beerBtnReset (khi bắt đầu tạo video → RUN)
+    if (window.beerBtnReset && !window.beerBtnReset._spritePatched) {
+      var orig = window.beerBtnReset;
+      window.beerBtnReset = function () {
+        orig.apply(this, arguments);
+        setState('loading');
+      };
+      window.beerBtnReset._spritePatched = true;
+    }
+
+    // Wrap beerBtnComplete (video sẵn sàng → STOP → CHEER)
+    if (window.beerBtnComplete && !window.beerBtnComplete._spritePatched) {
+      var origC = window.beerBtnComplete;
+      window.beerBtnComplete = function () {
+        origC.apply(this, arguments);
+        setState('ready');
+      };
+      window.beerBtnComplete._spritePatched = true;
+    }
+
+    // Wrap beerBtnError (lỗi → dừng + grayscale)
+    if (window.beerBtnError && !window.beerBtnError._spritePatched) {
+      var origE = window.beerBtnError;
+      window.beerBtnError = function () {
+        origE.apply(this, arguments);
+        setState('error');
+      };
+      window.beerBtnError._spritePatched = true;
+    }
+
+    // Wrap beerBtnHide (bấm xem video → ẩn sprite)
+    if (window.beerBtnHide && !window.beerBtnHide._spritePatched) {
+      var origH = window.beerBtnHide;
+      window.beerBtnHide = function () {
+        origH.apply(this, arguments);
+        setState('hidden');
+      };
+      window.beerBtnHide._spritePatched = true;
+    }
+
+    // Wrap beerBtnShow (beer button hiện lại → RUN)
+    if (window.beerBtnShow && !window.beerBtnShow._spritePatched) {
+      var origS = window.beerBtnShow;
+      window.beerBtnShow = function () {
+        origS.apply(this, arguments);
+        setState('loading');
+      };
+      window.beerBtnShow._spritePatched = true;
+    }
+
+    // Kiểm tra đã patch đủ chưa
+    return !!(
+      window.beerBtnReset    && window.beerBtnReset._spritePatched    &&
+      window.beerBtnComplete && window.beerBtnComplete._spritePatched &&
+      window.beerBtnError    && window.beerBtnError._spritePatched    &&
+      window.beerBtnHide     && window.beerBtnHide._spritePatched
+    );
+  }
+
+  /* ── Auto-sync fallback: nếu frontend đã có kết quả ảnh hoặc video trước khi patch ── */
+  function autoSync() {
+    var st = window.faceswapState;
+    if (!st) return;
+    if ((st.videoUrl || st.imageResult) && _state === 'loading') {
+      console.log("[sprite-arrow-debug] autoSync detected existing result. st.videoUrl:", !!st.videoUrl, "st.imageResult:", !!st.imageResult);
+      setState('ready');
+    }
+  }
+
+  /* ── Poll cho đến khi frontend_script init xong ── */
+  var pollAttempts = 0;
+  var patchPoll = setInterval(function () {
+    pollAttempts++;
+    var done = patchBeerBtnFunctions();
+    autoSync();
+    if (done || pollAttempts > 100) {
+      clearInterval(patchPoll);
+    }
+  }, 200);
+
+  /* ── Cũng chạy ngay nếu DOM đã sẵn sàng ── */
+  if (document.readyState !== 'loading') {
+    patchBeerBtnFunctions();
+  } else {
+    document.addEventListener('DOMContentLoaded', patchBeerBtnFunctions);
+  }
+
+})();
+</script>
