@@ -11,6 +11,7 @@
 - `/push-code`: Push current changes to git repository.
 
 ## Recent Changes
+- [2026-05-28] Free Stuck Pod & Fix Recovery Bug: (1) Giải cứu thủ công job stuck `lhfs_vid_939348d569ab8822ef14` và đưa pod VIP Video `mr8hz6shdia9by` (RTX 5090) từ `busy` về `idle` thành công; (2) Sửa lỗi nghiêm trọng trong cơ chế auto-recovery (`health.py`), bổ sung đầy đủ tham số `prompt_id` và `comfy_endpoint` vào payload gửi tới endpoint `/admin/job-recover`; (3) Tăng cường tính chống chịu cho `/admin/job-recover` (`main.py`) bằng cách tự động truy xuất `prompt_id` và `comfy_endpoint` từ Redis khi thiếu trong payload.
 - [2026-05-28] VIP Priority Allocation & Race Condition Fix: (1) Cải tiến `get_idle_worker` luôn ưu tiên phân bổ mọi loại Job (kể cả normal job) vào các POD VIP đang rảnh trước tiên để tận dụng tối đa sức mạnh máy ghim; (2) Triển khai cơ chế khóa phân tán Redis Lock (`lock:scale_up:{output_type}`) trong background pipeline `_try_scale_up`, triệt tiêu hoàn toàn race condition tạo thừa thãi nhiều máy khi có dồn dập nhiều job gửi đến cùng một thời điểm.
 - [2026-05-28] VIP Video Worker Deployment: Deployed a brand new VIP Video pod (NVIDIA GeForce RTX 5090, ID: cc6kf52dji8sws) pinned for 24 hours to support high-performance Video processing via `scratch/deploy_video_vip_pod.py`.
 - [2026-05-28] VIP Video Worker Deployment: Deployed a brand new VIP Video pod (NVIDIA GeForce RTX 5090, ID: vu712qd8oru19p) pinned for 24 hours to support high-performance Video processing via `scratch/deploy_video_vip_pod.py`.

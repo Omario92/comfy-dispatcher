@@ -109,7 +109,14 @@ async def _check_all():
                             try:
                                 async with httpx.AsyncClient(timeout=10) as client:
                                     # Lặng lẽ gọi endpoint để thử check history
-                                    await client.post(f"http://127.0.0.1:{port}/admin/job-recover", json={"job_id": current_job})
+                                    await client.post(
+                                        f"http://127.0.0.1:{port}/admin/job-recover",
+                                        json={
+                                            "job_id": current_job,
+                                            "prompt_id": job_data.get("comfy_prompt_id", ""),
+                                            "comfy_endpoint": job_data.get("comfy_endpoint", "")
+                                        }
+                                    )
                             except Exception:
                                 pass # Nếu 404 (chưa xong) thì kệ, chờ cycle sau
                         

@@ -115,12 +115,17 @@ async def job_recover(body: dict):
     from r2_uploader import download_and_upload_r2
     from job_processor import _callback_n8n, _guess_content_type
 
-    job_id   = body.get("job_id", "")
-    prompt_id = body.get("prompt_id", "")
-    comfy_endpoint = body.get("comfy_endpoint", "")
+    job_id = body.get("job_id", "")
+    job_data = await jobs.get(job_id) if job_id else None
+
+    prompt_id = body.get("prompt_id") or (job_data or {}).get("comfy_prompt_id", "")
+    comfy_endpoint = body.get("comfy_endpoint") or (job_data or {}).get("comfy_endpoint", "")
 
     if not all([job_id, prompt_id, comfy_endpoint]):
-        raise HTTPException(status_code=400, detail="Required: job_id, prompt_id, comfy_endpoint")
+        raise HTTPException(
+            status_code=400,
+            detail="Required: job_id, prompt_id, comfy_endpoint (either in body or stored in Redis)"
+        )
 
     headers = {"Authorization": f"Bearer {settings.RUNPOD_API_KEY}"}
     try:
