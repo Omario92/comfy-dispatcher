@@ -652,7 +652,7 @@ async def worker_done(req: DoneReq):
 
 # ============ RATE LIMIT HELPER ============
 
-async def check_rate_limit(redis_conn, identifier: str, max_requests: int = 5, window_sec: int = 300) -> Optional[int]:
+async def check_rate_limit(redis_conn, identifier: str, max_requests: int = 20, window_sec: int = 300) -> Optional[int]:
     """
     Checks rate limiting using a Redis Sorted Set (sliding window).
     Allows a burst of parallel requests within 3 seconds (e.g. image & video job pairs)
@@ -735,8 +735,8 @@ async def submit_job(req: SubmitJobReq, request: Request):
     # Tránh rate limit các localhost / unknown IP hoặc nếu không thể định danh
     if user_ip and user_ip not in ("127.0.0.1", "localhost", "unknown", ""):
         r = await get_redis()
-        # Giới hạn 5 requests trong 5 phút (300 giây)
-        wait_time = await check_rate_limit(r, user_ip, max_requests=5, window_sec=300)
+        # Giới hạn 20 requests trong 5 phút (300 giây)
+        wait_time = await check_rate_limit(r, user_ip, max_requests=20, window_sec=300)
         if wait_time is not None:
             minutes = wait_time // 60
             seconds = wait_time % 60
@@ -748,7 +748,7 @@ async def submit_job(req: SubmitJobReq, request: Request):
             logger.warning(f"[rate-limit] Blocked request from IP/ID={user_ip}. Wait remaining: {time_str}")
             raise HTTPException(
                 status_code=429,
-                detail=f"Bạn đã đạt giới hạn 5 lượt tạo trong 5 phút. Vui lòng chờ {time_str} nữa để tiếp tục."
+                detail=f"Bạn đã đạt giới hạn 20 lượt tạo trong 5 phút. Vui lòng chờ {time_str} nữa để tiếp tục."
             )
 
     # Ưu tiên dùng job_id từ n8n/PHP gửi lên (lhfs_xxx), nếu không có mới tự sinh

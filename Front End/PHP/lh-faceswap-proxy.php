@@ -146,7 +146,7 @@ function lh_check_token($request) {
 function lh_check_rate_limit($user_ip) {
     $now = time();
     $limit_time = 300; // 5 phút (300 giây)
-    $max_requests = 5;
+    $max_requests = 20;
 
     // Lấy danh sách timestamps từ transient
     $requests = get_transient('lhfs_rate_' . $user_ip);
@@ -176,7 +176,7 @@ function lh_check_rate_limit($user_ip) {
         
         return new WP_Error(
             'rate_limit_exceeded', 
-            'Bạn đã đạt giới hạn 5 lượt tạo trong 5 phút. Vui lòng chờ ' . $time_str . ' nữa để tiếp tục.', 
+            'Bạn đã đạt giới hạn 20 lượt tạo trong 5 phút. Vui lòng chờ ' . $time_str . ' nữa để tiếp tục.', 
             ['status' => 429]
         );
     }

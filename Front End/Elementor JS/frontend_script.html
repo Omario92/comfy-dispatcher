@@ -514,6 +514,136 @@
     .fs-btn-home:active {
       transform: translateY(1px);
     }
+
+    /* Camera Integration Styles */
+    #btn-open-camera {
+      background: linear-gradient(135deg, #ffd700 0%, #c68922 100%);
+      color: #0d111a;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: 'Inter', 'Outfit', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin: 12px auto;
+      cursor: pointer;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+    #btn-open-camera:hover {
+      opacity: 0.9;
+      transform: scale(1.03);
+    }
+    #btn-open-camera:active {
+      transform: scale(0.97);
+    }
+    @media (max-width: 767px) {
+      #btn-open-camera {
+        display: none !important;
+      }
+    }
+    .cam-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(8, 12, 22, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 100000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      font-family: 'Inter', 'Outfit', sans-serif;
+      pointer-events: none;
+    }
+    .cam-modal-overlay.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .cam-modal-container {
+      width: min(500px, 92vw);
+      background: linear-gradient(135deg, rgba(26, 31, 46, 0.85) 0%, rgba(13, 17, 26, 0.95) 100%);
+      border: 1px solid rgba(224, 184, 64, 0.35);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 40px rgba(224, 184, 64, 0.15) inset;
+      border-radius: 24px;
+      padding: 24px;
+      text-align: center;
+      transform: scale(0.9);
+      opacity: 0;
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease;
+    }
+    .cam-modal-overlay.show .cam-modal-container {
+      transform: scale(1);
+      opacity: 1;
+    }
+    .camera-preview-container {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 4/3;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #000;
+      border: 2px solid rgba(224, 184, 64, 0.5);
+      margin: 15px 0;
+    }
+    #camera-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+    .face-guide-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      box-shadow: inset 0 0 0 9999px rgba(13, 17, 26, 0.65);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .face-guide-oval {
+      width: 55%;
+      height: 70%;
+      border: 2.5px dashed #ffd700;
+      border-radius: 50%;
+      box-shadow: 0 0 30px rgba(224, 184, 64, 0.4);
+      animation: guidePulse 2s infinite ease-in-out;
+    }
+    @keyframes guidePulse {
+      0%, 100% { border-color: #ffd700; opacity: 0.85; }
+      50% { border-color: #ffffff; opacity: 0.55; }
+    }
+    .cam-btn-capture {
+      padding: 14px 24px;
+      background: linear-gradient(135deg, #00ff87 0%, #60efff 100%);
+      color: #0d111a;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0, 255, 135, 0.3);
+      transition: all 0.3s ease;
+    }
+    .cam-btn-capture:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 255, 135, 0.5);
+      filter: brightness(1.1);
+    }
+    .cam-btn-capture:active {
+      transform: translateY(1px);
+    }
   `;
     document.head.appendChild(styleEl);
 
@@ -1312,7 +1442,7 @@
               <span class="fs-modal-icon">⏳</span>
             </div>
             <h3 class="fs-modal-title">Giới Hạn Tần Suất</h3>
-            <p class="fs-modal-message">Bạn đã đạt giới hạn 5 lượt tạo trong 5 phút.<br>Vui lòng chờ một chút để tiếp tục thưởng thức bia Halida.</p>
+            <p class="fs-modal-message">Bạn đã đạt giới hạn 20 lượt tạo trong 5 phút.<br>Vui lòng chờ một chút để tiếp tục thưởng thức bia Halida.</p>
             <div class="fs-countdown-wrapper">
               <div class="fs-countdown-box">
                 <div class="fs-countdown-value" id="fs-min">00</div>
@@ -1407,6 +1537,7 @@
         DOM.btnGetVideo.classList.remove("video-ready");
       }
       stopVideoLoadingAnimation();  // Dừng animation khi reset
+      if (typeof closeCamera === "function") closeCamera();
       if (DOM.btnGetVideo) DOM.btnGetVideo.textContent = "VIDEO ĐANG TẠO...";
       if (DOM.videoStatusHint) { DOM.videoStatusHint.textContent = ""; DOM.videoStatusHint.style.display = ""; }
       if (DOM.resultVideo) DOM.resultVideo.classList.remove("video-section-hidden");
@@ -1442,7 +1573,45 @@
       return cloned;
     }
 
+    /* ============================================================
+       CAMERA CAPTURE & DOM INJECTION INTEGRATION
+    ============================================================ */
+    let cameraStream = null;
+
+    // Create the camera button dynamically
+    const camBtn = document.createElement("button");
+    camBtn.type = "button";
+    camBtn.id = "btn-open-camera";
+    camBtn.className = "btn-action";
+    camBtn.innerHTML = `<span>📷 CHỤP ẢNH TRỰC TIẾP</span>`;
+
+    // Create the camera modal overlay dynamically
+    const camModal = document.createElement("div");
+    camModal.id = "camera-modal";
+    camModal.className = "cam-modal-overlay";
+    camModal.innerHTML = `
+      <div class="cam-modal-container">
+        <div class="fs-modal-title">CHỤP ẢNH CHÂN DUNG</div>
+        <p class="fs-modal-message">Vui lòng căn giữa khuôn mặt vào khung oval bên dưới</p>
+        <div class="camera-preview-container">
+          <video id="camera-video" autoplay playsinline></video>
+          <div class="face-guide-overlay">
+            <div class="face-guide-oval"></div>
+          </div>
+        </div>
+        <canvas id="camera-canvas" style="display: none;"></canvas>
+        <div class="fs-modal-actions">
+          <button type="button" id="btn-camera-capture" class="cam-btn-capture">CHỤP</button>
+          <button type="button" id="btn-camera-close" class="fs-btn-home">ĐÓNG</button>
+        </div>
+      </div>
+    `;
+
+    // Inject elements into DOM
     if (DOM.dropZone) {
+      // Insert camera button right below the drop zone
+      DOM.dropZone.parentNode.insertBefore(camBtn, DOM.dropZone.nextSibling);
+
       DOM.fileInput.addEventListener("change", e => {
         if (e.target.files[0]) handleFile(e.target.files[0]);
       });
@@ -1454,6 +1623,109 @@
         if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
       });
     }
+    document.body.appendChild(camModal);
+
+    const camElements = {
+      video: document.getElementById("camera-video"),
+      canvas: document.getElementById("camera-canvas"),
+      btnCapture: document.getElementById("btn-camera-capture"),
+      btnClose: document.getElementById("btn-camera-close")
+    };
+
+    async function openCamera() {
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "user",
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        });
+
+        camElements.video.srcObject = cameraStream;
+        camModal.style.setProperty("display", "flex", "important");
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            camModal.classList.add("show");
+          });
+        });
+      } catch (err) {
+        console.error("Lỗi truy cập Camera:", err);
+        alert("❌ Không thể truy cập Camera. Vui lòng kiểm tra lại quyền thiết bị!");
+      }
+    }
+
+    function closeCamera() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+      }
+      if (camElements.video) camElements.video.srcObject = null;
+      camModal.classList.remove("show");
+      setTimeout(() => {
+        camModal.style.setProperty("display", "none", "important");
+      }, 400);
+    }
+
+    function capturePhoto() {
+      if (!camElements.video || !camElements.video.srcObject) return;
+
+      const videoW = camElements.video.videoWidth;
+      const videoH = camElements.video.videoHeight;
+      
+      camElements.canvas.width = videoW;
+      camElements.canvas.height = videoH;
+      
+      const ctx = camElements.canvas.getContext("2d");
+      
+      // Mirror horizontal translation for drawing on canvas
+      ctx.translate(videoW, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(camElements.video, 0, 0, videoW, videoH);
+      
+      camElements.canvas.toBlob((blob) => {
+        if (blob) {
+          const filename = `camera_captured_${Date.now()}.jpg`;
+          const capturedFile = new File([blob], filename, {
+            type: "image/jpeg",
+            lastModified: Date.now()
+          });
+          
+          handleFile(capturedFile);
+          closeCamera();
+        } else {
+          alert("❌ Lỗi trong quá trình xử lý hình ảnh chụp từ Camera!");
+        }
+      }, "image/jpeg", 0.95);
+    }
+
+    if (camBtn) {
+      camBtn.addEventListener("click", e => {
+        e.preventDefault();
+        openCamera();
+      });
+    }
+
+    if (camElements.btnClose) {
+      camElements.btnClose.addEventListener("click", e => {
+        e.preventDefault();
+        closeCamera();
+      });
+    }
+
+    if (camElements.btnCapture) {
+      camElements.btnCapture.addEventListener("click", e => {
+        e.preventDefault();
+        capturePhoto();
+      });
+    }
+
+    window.addEventListener("beforeunload", () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+    });
 
     if (DOM.confirmCheckbox) DOM.confirmCheckbox.addEventListener("change", syncUploadButton);
 
@@ -1738,7 +2010,7 @@
             clearTimeout(checkTimer);
           }
           if (checkRes.status === 429) {
-            let msg = "Bạn đã đạt giới hạn 5 lượt tạo trong 5 phút. Vui lòng chờ vài phút nữa để tiếp tục.";
+            let msg = "Bạn đã đạt giới hạn 20 lượt tạo trong 5 phút. Vui lòng chờ vài phút nữa để tiếp tục.";
             try {
               const errData = await checkRes.json();
               const parsedData = Array.isArray(errData) ? errData[0] : errData;
