@@ -194,14 +194,26 @@ async def _acquire_worker(
         return active.get(output_type, 0) + active.get("any", 0)
 
     async def _try_scale_up(reason: str = ""):
-        compatible = await _count_compatible_active()
-        counts = await pool.count_by_status()
-        if compatible == 0 and counts["total"] < settings.MAX_WORKERS:
-            logger.info(f"[processor] scale_up({output_type}) triggered for {job_id} ({reason})")
-            try:
+        r = await get_redis()
+        lock_key = f"lock:scale_up:{output_type}"
+        
+        # Thử giành lock trong 25 giây (SETNX) để chặn race condition khi nhiều job đến cùng lúc
+        acquired_lock = await r.set(lock_key, "1", ex=25, nx=True)
+        if not acquired_lock:
+            logger.info(f"[processor] scale_up({output_type}) bypassed for {job_id}: another task is already scaling up this type")
+            return
+
+        try:
+            compatible = await _count_compatible_active()
+            counts = await pool.count_by_status()
+            if compatible == 0 and counts["total"] < settings.MAX_WORKERS:
+                logger.info(f"[processor] scale_up({output_type}) triggered for {job_id} ({reason})")
                 await scale_up(worker_type=output_type)
-            except Exception as e:
-                logger.warning(f"[processor] scale_up failed: {e}")
+        except Exception as e:
+            logger.warning(f"[processor] scale_up failed: {e}")
+        finally:
+            # Giải phóng lock ngay lập tức
+            await r.delete(lock_key)
 
     # Kiểm tra ngay lần đầu: nếu chưa có pod nào compatible → scale_up ngay
     if await _count_compatible_active() == 0:

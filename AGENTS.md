@@ -11,6 +11,8 @@
 - `/push-code`: Push current changes to git repository.
 
 ## Recent Changes
+- [2026-05-28] VIP Priority Allocation & Race Condition Fix: (1) Cải tiến `get_idle_worker` luôn ưu tiên phân bổ mọi loại Job (kể cả normal job) vào các POD VIP đang rảnh trước tiên để tận dụng tối đa sức mạnh máy ghim; (2) Triển khai cơ chế khóa phân tán Redis Lock (`lock:scale_up:{output_type}`) trong background pipeline `_try_scale_up`, triệt tiêu hoàn toàn race condition tạo thừa thãi nhiều máy khi có dồn dập nhiều job gửi đến cùng một thời điểm.
+- [2026-05-28] VIP Video Worker Deployment: Deployed a brand new VIP Video pod (NVIDIA GeForce RTX 5090, ID: cc6kf52dji8sws) pinned for 24 hours to support high-performance Video processing via `scratch/deploy_video_vip_pod.py`.
 - [2026-05-28] VIP Video Worker Deployment: Deployed a brand new VIP Video pod (NVIDIA GeForce RTX 5090, ID: vu712qd8oru19p) pinned for 24 hours to support high-performance Video processing via `scratch/deploy_video_vip_pod.py`.
 - [2026-05-28] VIP Image Worker Deployment: Deployed a brand new VIP Image pod (NVIDIA RTX PRO 4500 Blackwell, ID: 8ssksf5my8ekq5) pinned for 24 hours to support high-performance Image processing via `scratch/deploy_image_vip_pod.py`.
 - [2026-05-27] VIP Workers Deployment: Deployed 2 brand new VIP pods (NVIDIA GeForce RTX 5090) (Image: 1q7jrdaaom8xs2, Video: kjhhwk1t62oz4e) pinned for 24 hours to support parallel Image and Video processing via `scratch/deploy_new_vip_pods.py`.

@@ -104,12 +104,9 @@ class WorkerPool:
         vip    = [w for w in candidates if w.get("pinned_until", 0) > now]
         normal = [w for w in candidates if w.get("pinned_until", 0) <= now]
 
-        if prefer_vip:
-            # High-priority: VIP first, then normal
-            return (vip or normal or [None])[0]
-        else:
-            # Normal: avoid spending VIP pods, prefer normal workers
-            return (normal or vip or [None])[0]
+        # QUAN TRỌNG: Luôn luôn ưu tiên VIP worker đang rảnh lên hàng đầu cho mọi loại job
+        # để tận dụng tối đa sức mạnh của card cao cấp đã ghim và load sẵn model.
+        return (vip or normal or [None])[0]
 
     async def count_idle_by_type(self) -> dict:
         """Đếm số pod idle theo worker_type. Dùng cho autoscaler smart scale-up."""
