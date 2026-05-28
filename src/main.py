@@ -830,3 +830,39 @@ async def admin_scale_up(body: dict = {}):
     worker_type = body.get("worker_type", "any") if body else "any"
     result = await scale_up(worker_type=worker_type)
     return {"created": result, "worker_type": worker_type}
+
+
+@app.get("/admin/recent-jobs")
+async def admin_recent_jobs(limit: int = 50):
+    """Lấy danh sách 50 jobs gần nhất trong Redis."""
+    r = await get_redis()
+    keys = await r.keys(f"{settings.JOB_STATUS_PREFIX}*")
+    if not keys:
+        return []
+    
+    pipe = r.pipeline()
+    for k in keys:
+        pipe.hgetall(k)
+    results = await pipe.execute()
+    
+    job_list = []
+    for item in results:
+        if not item or "job_id" not in item:
+            continue
+        
+        # Xóa workflow để giảm dung lượng payload
+        if "workflow" in item:
+            del item["workflow"]
+            
+        # Parse trường thời gian an toàn
+        try:
+            item["created_at"] = int(item.get("created_at") or 0)
+            item["updated_at"] = int(item.get("updated_at") or 0)
+        except ValueError:
+            pass
+            
+        job_list.append(item)
+        
+    # Sắp xếp theo created_at giảm dần
+    job_list.sort(key=lambda x: x.get("created_at", 0), reverse=True)
+    return job_list[:limit]
