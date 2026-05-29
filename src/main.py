@@ -313,6 +313,63 @@ async def terminate_pod_by_id(body: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/admin/schedule-shutdown")
+async def schedule_shutdown_pod(body: dict):
+    """Đặt lịch tự động tắt một pod sau X phút nếu không xử lý thêm job nào."""
+    pod_id = body.get("pod_id") or body.get("podId")
+    minutes = float(body.get("minutes") or 10)
+    
+    if not pod_id:
+        raise HTTPException(status_code=400, detail="pod_id required")
+        
+    r = await get_redis()
+    w_key = f"{settings.WORKER_PREFIX}{pod_id}"
+    exists = await r.exists(w_key)
+    if not exists:
+        raise HTTPException(status_code=404, detail=f"Pod {pod_id} not found in Redis registry")
+        
+    w_data = await r.hgetall(w_key)
+    last_active_init = int(w_data.get("last_active") or 0)
+    
+    async def shutdown_task():
+        logger.info(f"[schedule-shutdown] Bắt đầu hẹn giờ tắt cho Pod {pod_id} sau {minutes} phút...")
+        await asyncio.sleep(minutes * 60)
+        
+        r_inner = await get_redis()
+        w_exists = await r_inner.exists(w_key)
+        if not w_exists:
+            logger.info(f"[schedule-shutdown] Pod {pod_id} không còn trong Redis. Bỏ qua.")
+            return
+            
+        w_curr = await r_inner.hgetall(w_key)
+        status = w_curr.get("status", "idle")
+        last_active_curr = int(w_curr.get("last_active") or 0)
+        
+        if last_active_curr <= last_active_init and status in ("idle", "stopped"):
+            logger.warning(f"[schedule-shutdown] Pod {pod_id} rảnh rỗi sau {minutes} phút (không có job mới). Tiến hành tự động tắt máy!")
+            try:
+                # Đặt pinned_until về 0 trước để hủy ghim VIP (nếu có)
+                await r_inner.hset(w_key, "pinned_until", 0)
+                await runpod.terminate_pod(pod_id)
+                await pool.remove(pod_id)
+                logger.warning(f"[schedule-shutdown] Đã tự động tắt Pod {pod_id} thành công!")
+            except LookupError:
+                await pool.remove(pod_id)
+                logger.warning(f"[schedule-shutdown] Pod {pod_id} đã bị xóa trên RunPod, dọn Redis registry.")
+            except Exception as e:
+                logger.error(f"[schedule-shutdown] Lỗi khi tự động tắt Pod {pod_id}: {str(e)}")
+        else:
+            logger.info(f"[schedule-shutdown] Pod {pod_id} đã có hoạt động mới hoặc đang busy (last_active: {last_active_curr} vs {last_active_init}, status: {status}). Hủy lệnh tự động tắt.")
+            
+    asyncio.create_task(shutdown_task())
+    return {
+        "status": "scheduled",
+        "pod_id": pod_id,
+        "delay_minutes": minutes,
+        "message": f"Đã đặt lịch tự động tắt Pod {pod_id} sau {minutes} phút nếu không xử lý thêm job nào."
+    }
+
+
 @app.post("/admin/pause-pod")
 async def pause_pod_by_id(body: dict):
     """

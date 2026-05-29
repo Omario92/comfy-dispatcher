@@ -123,25 +123,42 @@
     font-family: 'Anton', sans-serif;
     font-size: clamp(26px, 4.8vw, 42px);
     text-transform: uppercase;
-    color: #ffffff;
+    color: #1f1d53; /* Đổi màu chữ sang xanh đậm thương hiệu Halida */
     text-align: center;
     margin: 10px 0 25px 0;
     letter-spacing: 2px;
     line-height: 1.15;
     
+    /* Thiết lập shadow sáng màu (white stroke) để nổi bật chữ tối màu trên nền vàng */
     text-shadow:
-      0 2px 4px rgba(0, 0, 0, 0.6),
-      0 4px 15px rgba(0, 0, 0, 0.4),
-      0 0 12px rgba(255, 179, 0, 0.25);
+      0 1px 0 rgba(255, 255, 255, 0.95),
+      0 2px 4px rgba(255, 255, 255, 0.65),
+      0 3px 8px rgba(0, 0, 0, 0.15),
+      0 -1px 2px rgba(254, 226, 129, 0.75);
       
+    -webkit-text-stroke: 0.45px rgba(255, 255, 255, 0.75);
     user-select: none;
     transition: color 0.3s ease;
   }
 
   /* Nhấp nháy nhẹ kích thích sự tò mò khi loading */
   @keyframes textLoadingGlow {
-    0%, 100% { opacity: 1; text-shadow: 0 2px 4px rgba(0,0,0,0.6), 0 0 10px rgba(255, 179, 0, 0.2); }
-    50%      { opacity: 0.88; text-shadow: 0 2px 4px rgba(0,0,0,0.6), 0 0 18px rgba(255, 179, 0, 0.55); }
+    0%, 100% { 
+      opacity: 1; 
+      text-shadow: 
+        0 1px 0 rgba(255, 255, 255, 0.95),
+        0 2px 4px rgba(255, 255, 255, 0.65),
+        0 3px 8px rgba(0, 0, 0, 0.15),
+        0 0 10px rgba(255, 179, 0, 0.3); 
+    }
+    50%      { 
+      opacity: 0.88; 
+      text-shadow: 
+        0 1px 0 rgba(255, 255, 255, 0.95),
+        0 2px 4px rgba(255, 255, 255, 0.75),
+        0 3px 8px rgba(0, 0, 0, 0.15),
+        0 0 18px rgba(255, 179, 0, 0.55); 
+    }
   }
   .new-loading-container.is-loading-state .new-anton-title {
     animation: textLoadingGlow 1.8s ease-in-out infinite;
@@ -149,8 +166,22 @@
 
   /* Đổi màu và pulse mạnh khi ready */
   @keyframes textReadyGlow {
-    0%, 100% { transform: scale(1); color: #ffffff; text-shadow: 0 2px 4px rgba(0,0,0,0.6), 0 0 15px rgba(255, 179, 0, 0.6); }
-    50%      { transform: scale(1.02); color: #FFD54F; text-shadow: 0 2px 4px rgba(0,0,0,0.6), 0 0 25px rgba(255, 179, 0, 0.9); }
+    0%, 100% { 
+      transform: scale(1); 
+      color: #1f1d53; 
+      text-shadow: 
+        0 1px 0 rgba(255, 255, 255, 0.95),
+        0 2px 4px rgba(255, 255, 255, 0.75),
+        0 0 15px rgba(255, 179, 0, 0.4); 
+    }
+    50%      { 
+      transform: scale(1.02); 
+      color: #151341; 
+      text-shadow: 
+        0 1px 0 rgba(255, 255, 255, 0.95),
+        0 2px 6px rgba(255, 255, 255, 0.85),
+        0 0 25px rgba(255, 179, 0, 0.75); 
+    }
   }
   .new-loading-container.is-ready-state .new-anton-title {
     animation: textReadyGlow 1.4s ease-in-out infinite;
@@ -272,7 +303,7 @@
   </h2>
 
   <!-- Silent Beer Loading Bar -->
-  <div class="beer-bar-shell" id="newBeerShell">
+  <div class="beer-bar-shell beer-btn-shell" id="newBeerShell">
     <div class="beer-bar-fill" id="newBeerFill"></div>
   </div>
 
@@ -313,6 +344,14 @@
         // progress lên 100%
         widget.style.setProperty('--beer-progress', '100%');
         textEl.innerHTML = 'VIDEO ĐÃ SẴN SÀNG ✓';
+        widget.style.display = '';
+        widget.style.opacity = '1';
+        break;
+
+      case 'download':
+        widget.classList.add('is-ready-state');
+        widget.style.setProperty('--beer-progress', '100%');
+        textEl.innerHTML = 'BẤM ĐỂ TẢI VIDEO ✓';
         widget.style.display = '';
         widget.style.opacity = '1';
         break;
@@ -443,11 +482,32 @@
   shell.addEventListener('click', function() {
     if (_state === 'ready') {
       var origShell = document.getElementById('_beer-shell');
-      if (origShell) {
-        origShell.click(); // chuyển tiếp sự kiện Click
+      if (origShell && origShell !== shell) {
+        origShell.click(); // chuyển tiếp sự kiện Click sang shell cũ nếu có
       }
     }
   });
+
+  // Polling để phát hiện trạng thái tải video (is-download-ready) từ mọi beer-btn-shell trên DOM
+  setInterval(function () {
+    var shells = document.querySelectorAll('.beer-btn-shell');
+    var isDownloadReady = false;
+    var isReady = false;
+    
+    shells.forEach(function(s) {
+      if (s.classList.contains('is-download-ready') || s.dataset.videoCtaState === 'download') {
+        isDownloadReady = true;
+      } else if (s.classList.contains('is-ready') || s.dataset.videoCtaState === 'ready') {
+        isReady = true;
+      }
+    });
+
+    if (isDownloadReady && _state !== 'download') {
+      applyState('download');
+    } else if (!isDownloadReady && isReady && _state !== 'ready') {
+      applyState('ready');
+    }
+  }, 200);
 
 })();
 </script>

@@ -1,0 +1,1660 @@
+<!-- 🍺 HALIDA DISPATCHER WIDGET FOR ELEMENTOR -->
+<!-- Paste this code directly into your Elementor HTML Widget Container -->
+
+<div class="hld-dash-container">
+  <!-- CSS Styles (Scoped using prefix .hld-dash-) -->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    .hld-dash-container {
+      --bg: #0b0d12;
+      --card-bg: rgba(22, 28, 41, 0.45);
+      --glass-border: rgba(255, 215, 0, 0.08);
+      --glass-border-focus: rgba(255, 215, 0, 0.25);
+      --gold: #ffc83b;
+      --gold-dark: #b8860b;
+      --gold-glow: rgba(255, 200, 59, 0.15);
+      --cyan: #00d2ff;
+      --cyan-glow: rgba(0, 210, 255, 0.15);
+      --green: #10b981;
+      --green-glow: rgba(16, 185, 129, 0.15);
+      --yellow: #f59e0b;
+      --red: #f43f5e;
+      --red-glow: rgba(244, 63, 94, 0.15);
+      --purple: #a855f7;
+      --purple-glow: rgba(168, 85, 247, 0.15);
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --border-color: #1e293b;
+      --radius-lg: 20px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+      
+      font-family: 'Outfit', sans-serif;
+      background: linear-gradient(135deg, #090b0e 0%, #0d121c 100%);
+      color: var(--text);
+      padding: 30px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      max-width: 1200px;
+      margin: 20px auto;
+      position: relative;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+
+    .hld-dash-container * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Ambient Lighting effect */
+    .hld-dash-container::before {
+      content: '';
+      position: absolute;
+      top: -150px;
+      right: -150px;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, var(--gold-glow) 0%, rgba(0,0,0,0) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .hld-dash-container::after {
+      content: '';
+      position: absolute;
+      bottom: -150px;
+      left: -150px;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, var(--cyan-glow) 0%, rgba(0,0,0,0) 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .hld-dash-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── HEADER ── */
+    .hld-dash-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+    .hld-dash-logo-title h1 {
+      font-size: 28px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 30%, var(--gold) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .hld-dash-logo-title p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      font-weight: 400;
+    }
+
+    .hld-dash-refresh-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .hld-dash-refresh-badge .hld-dash-pulse-dot {
+      width: 7px;
+      height: 7px;
+      background: #34d399;
+      border-radius: 50%;
+      animation: hld-dash-pulse 1.8s infinite;
+    }
+    @keyframes hld-dash-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.7); }
+      50% { transform: scale(1.2); opacity: 0.4; box-shadow: 0 0 0 6px rgba(52, 211, 153, 0); }
+    }
+
+    /* ── CONFIG SECTION ── */
+    .hld-dash-config {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr 120px;
+      gap: 12px;
+      background: var(--card-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin-bottom: 25px;
+      align-items: flex-end;
+    }
+    @media (max-width: 768px) {
+      .hld-dash-config { grid-template-columns: 1fr; }
+    }
+    .hld-dash-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .hld-dash-field label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .hld-dash-input, .hld-dash-select {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 13px;
+      padding: 10px 14px;
+      outline: none;
+      transition: all 0.25s;
+      width: 100%;
+    }
+    .hld-dash-input:focus, .hld-dash-select:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 10px rgba(255, 200, 59, 0.1);
+    }
+    .hld-dash-input::placeholder {
+      color: #475569;
+    }
+    .hld-dash-input-mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+
+    /* ── STATS ROW ── */
+    .hld-dash-stats-bar {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin-bottom: 25px;
+    }
+    @media (max-width: 1024px) {
+      .hld-dash-stats-bar { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .hld-dash-stats-bar { grid-template-columns: repeat(2, 1fr); }
+    }
+    .hld-dash-stat-chip {
+      background: var(--card-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+    .hld-dash-stat-chip::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 3px;
+      border-radius: 3px 3px 0 0;
+      opacity: 0.6;
+    }
+    .hld-dash-stat-chip:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      border-color: var(--glass-border-focus);
+    }
+    .hld-dash-stat-chip .val {
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }
+    .hld-dash-stat-chip .lbl {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .hld-dash-stat-chip.idle::before { background: var(--green); }
+    .hld-dash-stat-chip.idle .val { color: var(--green); text-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
+    .hld-dash-stat-chip.busy::before { background: var(--yellow); }
+    .hld-dash-stat-chip.busy .val { color: var(--yellow); text-shadow: 0 0 10px rgba(245, 158, 11, 0.2); }
+    .hld-dash-stat-chip.booting::before { background: var(--cyan); }
+    .hld-dash-stat-chip.booting .val { color: var(--cyan); text-shadow: 0 0 10px rgba(0, 210, 255, 0.2); }
+    .hld-dash-stat-chip.stopped::before { background: var(--text-muted); }
+    .hld-dash-stat-chip.stopped .val { color: #cbd5e1; }
+    .hld-dash-stat-chip.queue::before { background: var(--purple); }
+    .hld-dash-stat-chip.queue .val { color: var(--purple); text-shadow: 0 0 10px rgba(168, 85, 247, 0.2); }
+
+    /* ── BUTTONS ── */
+    .hld-dash-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      width: 100%;
+      text-align: center;
+      color: #fff;
+    }
+    .hld-dash-btn:hover {
+      filter: brightness(1.15);
+      transform: translateY(-1px);
+    }
+    .hld-dash-btn:active {
+      transform: translateY(0);
+      filter: brightness(0.95);
+    }
+    .hld-dash-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none !important;
+      filter: none !important;
+    }
+    .hld-dash-btn-gold { background: linear-gradient(135deg, var(--gold) 0%, #f59e0b 100%); color: #0b0d12; }
+    .hld-dash-btn-blue { background: linear-gradient(135deg, var(--cyan) 0%, #0284c7 100%); }
+    .hld-dash-btn-green { background: linear-gradient(135deg, var(--green) 0%, #047857 100%); }
+    .hld-dash-btn-red { background: linear-gradient(135deg, var(--red) 0%, #b91c1c 100%); }
+    .hld-dash-btn-purple { background: linear-gradient(135deg, var(--purple) 0%, #7e22ce 100%); }
+    .hld-dash-btn-gray { background: #334155; color: var(--text); }
+    
+    .hld-dash-btn-sm {
+      padding: 6px 10px;
+      font-size: 11px;
+      border-radius: 6px;
+    }
+
+    /* ── LIVE REGISTRY TABLE ── */
+    .hld-dash-table-card {
+      background: var(--card-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin-bottom: 25px;
+    }
+    .hld-dash-table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .hld-dash-table-header h2 {
+      font-size: 18px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .hld-dash-search-box {
+      width: 250px;
+      position: relative;
+    }
+    @media (max-width: 640px) {
+      .hld-dash-search-box { width: 100%; }
+    }
+    
+    .hld-dash-table-scroll {
+      overflow-x: auto;
+      width: 100%;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .hld-dash-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      text-align: left;
+    }
+    .hld-dash-table th {
+      background: rgba(15, 23, 42, 0.9);
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-color);
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 0.8px;
+    }
+    .hld-dash-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      vertical-align: middle;
+      font-family: 'Outfit', sans-serif;
+    }
+    .hld-dash-table tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .hld-dash-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .hld-dash-table td.mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    /* Status Badges */
+    .hld-dash-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .hld-dash-badge-idle { background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
+    .hld-dash-badge-busy { background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
+    .hld-dash-badge-booting { background: rgba(6, 182, 212, 0.12); color: #22d3ee; border: 1px solid rgba(6, 182, 212, 0.2); }
+    .hld-dash-badge-stopped { background: rgba(148, 163, 184, 0.12); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.2); }
+    .hld-dash-badge-dead { background: rgba(244, 63, 94, 0.12); color: #f87171; border: 1px solid rgba(244, 63, 94, 0.2); }
+
+    .hld-dash-badge-img { background: rgba(168, 85, 247, 0.1); color: #d8b4fe; }
+    .hld-dash-badge-vid { background: rgba(16, 185, 129, 0.1); color: #6ee7b7; }
+    .hld-dash-badge-any { background: rgba(148, 163, 184, 0.1); color: #cbd5e1; }
+
+    .hld-dash-endpoint-link {
+      color: var(--cyan);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .hld-dash-endpoint-link:hover {
+      color: #fff;
+      text-decoration: underline;
+    }
+
+    /* ── ACTION GRID ── */
+    .hld-dash-action-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 20px;
+      margin-bottom: 25px;
+    }
+    @media (max-width: 640px) {
+      .hld-dash-action-grid { grid-template-columns: 1fr; }
+    }
+    .hld-dash-card {
+      background: var(--card-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      position: relative;
+    }
+    .hld-dash-card:hover {
+      border-color: rgba(255, 215, 0, 0.15);
+    }
+    .hld-dash-card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      padding-bottom: 10px;
+    }
+
+    /* ── UTILITIES BAR ── */
+    .hld-dash-utils-card {
+      background: var(--card-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin-bottom: 25px;
+    }
+    .hld-dash-utils-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    /* ── RESPONSE BLOCK ── */
+    .hld-dash-response-box {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      max-height: 180px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+      display: none;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+    .hld-dash-response-box.visible {
+      display: block;
+    }
+    .hld-dash-response-box.ok { border-color: rgba(16, 185, 129, 0.3); color: #a7f3d0; }
+    .hld-dash-response-box.err { border-color: rgba(244, 63, 94, 0.3); color: #fecdd3; }
+
+    /* ── TOASTS ── */
+    .hld-dash-toast-wrap {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .hld-dash-toast {
+      background: rgba(22, 28, 41, 0.95);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+      backdrop-filter: blur(12px);
+      border-radius: var(--radius-sm);
+      padding: 12px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      animation: hld-dash-slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      max-width: 350px;
+    }
+    .hld-dash-toast.ok { border-left: 4px solid var(--green); }
+    .hld-dash-toast.err { border-left: 4px solid var(--red); }
+    @keyframes hld-dash-slideIn {
+      from { transform: translateX(50px); opacity: 0; }
+      to { transform: none; opacity: 1; }
+    }
+
+    /* ── DIVIDER ── */
+    .hld-dash-divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      margin: 4px 0;
+    }
+    
+    .hld-dash-spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: hld-dash-spin .7s linear infinite;
+    }
+    @keyframes hld-dash-spin { to { transform: rotate(360deg); } }
+
+    /* ── LOGIN SHIELD (GLASSMORPHISM) ── */
+    .hld-dash-login-shield {
+      position: absolute;
+      inset: 0;
+      background: rgba(9, 11, 14, 0.88);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.4s ease, visibility 0.4s ease;
+      padding: 20px;
+    }
+    .hld-dash-login-shield.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .hld-dash-login-card {
+      background: rgba(22, 28, 41, 0.65);
+      border: 1px solid rgba(255, 215, 0, 0.12);
+      border-radius: var(--radius-lg);
+      padding: 40px 30px;
+      width: 100%;
+      max-width: 440px;
+      text-align: center;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 200, 59, 0.03);
+      position: relative;
+      overflow: hidden;
+      animation: hld-dash-fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes hld-dash-fadeInUp {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .hld-dash-login-logo {
+      font-size: 54px;
+      margin-bottom: 12px;
+      display: inline-block;
+      filter: drop-shadow(0 0 15px rgba(255, 200, 59, 0.3));
+      animation: hld-dash-logoFloat 3s ease-in-out infinite;
+    }
+    @keyframes hld-dash-logoFloat {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+    .hld-dash-login-card h2 {
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 6px;
+      background: linear-gradient(135deg, #fff 40%, var(--gold) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hld-dash-login-card p {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 25px;
+      line-height: 1.5;
+    }
+    .hld-dash-login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      text-align: left;
+    }
+    .hld-dash-login-shake {
+      animation: hld-dash-shake 0.4s ease-in-out;
+    }
+    @keyframes hld-dash-shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-8px); }
+      40%, 80% { transform: translateX(8px); }
+    }
+  </style>
+
+  <!-- ── LOGIN SHIELD (MÀN HÌNH KHÓA BẢO MẬT) ── -->
+  <div id="hld-dash-login-shield" class="hld-dash-login-shield">
+    <div class="hld-dash-login-card" id="hld-login-card">
+      <div class="hld-dash-login-logo">🍺</div>
+      <h2>Xác Thực Quyền Admin</h2>
+      <p>Vui lòng cung cấp địa chỉ API và mật mã API Key của server Dispatcher để mở khóa Dashboard.</p>
+      
+      <div class="hld-dash-login-form">
+        <div class="hld-dash-field">
+          <label>Địa Chỉ API Dispatcher</label>
+          <input id="hld-login-url" class="hld-dash-input hld-dash-input-mono" value="https://comfy-dispatcher-production.up.railway.app" placeholder="https://...">
+        </div>
+        <div class="hld-dash-field">
+          <label>Mật Mã API Key (Bearer Token)</label>
+          <input id="hld-login-key" class="hld-dash-input hld-dash-input-mono" type="password" placeholder="Nhập API Key để mở khóa...">
+        </div>
+        <button id="hld-login-btn" class="hld-dash-btn hld-dash-btn-gold" style="height: 42px; margin-top: 10px;" onclick="hldDashTryLogin()">
+          🔑 Xác Thực & Kết Nối
+        </button>
+        <div style="font-size: 12px; color: var(--red); text-align: center; font-weight: 600; margin-top: 5px; display: none;" id="hld-login-error"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hld-dash-inner" id="hld-dash-inner" style="display: none;">
+    <!-- ── HEADER ── -->
+    <div class="hld-dash-header">
+      <div class="hld-dash-logo-title">
+        <h1>🍺 Halida Dispatcher Dashboard</h1>
+        <p>Quản lý Workers, Điều phối Pod ComfyUI, Tự động Scale & Thu hồi</p>
+      </div>
+      <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+        <span class="hld-dash-refresh-badge">
+          <span class="hld-dash-pulse-dot"></span>
+          Auto-sync 15s
+        </span>
+        <button class="hld-dash-btn hld-dash-btn-gray hld-dash-btn-sm" style="width: auto;" onclick="hldDashRefresh()">⟳ Làm mới ngay</button>
+      </div>
+    </div>
+
+    <!-- ── CONFIG ── -->
+    <div class="hld-dash-config">
+      <div class="hld-dash-field">
+        <label>Địa chỉ API Dispatcher</label>
+        <input id="hld-cfg-url" class="hld-dash-input hld-dash-input-mono" value="https://comfy-dispatcher-production.up.railway.app" placeholder="https://...">
+      </div>
+      <div class="hld-dash-field">
+        <label>API Authorization Key (nếu có)</label>
+        <input id="hld-cfg-key" class="hld-dash-input hld-dash-input-mono" type="password" placeholder="Bearer Key...">
+      </div>
+      <button class="hld-dash-btn hld-dash-btn-gold" style="height: 38px;" onclick="hldDashSaveConfig()">💾 Lưu lại</button>
+    </div>
+
+    <!-- ── STATS CHIPS ── -->
+    <div class="hld-dash-stats-bar">
+      <div class="hld-dash-stat-chip idle" onclick="hldScrollToTable()">
+        <div class="val" id="hld-s-idle">—</div>
+        <div class="lbl">🟢 Idle</div>
+      </div>
+      <div class="hld-dash-stat-chip busy" onclick="hldScrollToTable()">
+        <div class="val" id="hld-s-busy">—</div>
+        <div class="lbl">🟡 Busy</div>
+      </div>
+      <div class="hld-dash-stat-chip booting" onclick="hldScrollToTable()">
+        <div class="val" id="hld-s-booting">—</div>
+        <div class="lbl">🔵 Booting</div>
+      </div>
+      <div class="hld-dash-stat-chip stopped" onclick="hldScrollToTable()">
+        <div class="val" id="hld-s-stopped">—</div>
+        <div class="lbl">⚫ Paused</div>
+      </div>
+      <div class="hld-dash-stat-chip queue">
+        <div class="val" id="hld-s-queue">—</div>
+        <div class="lbl">📋 Pending Jobs</div>
+      </div>
+    </div>
+
+    <!-- ── WORKERS TABLE ── -->
+    <div class="hld-dash-table-card" id="hld-table-section">
+      <div class="hld-dash-table-header">
+        <h2>💻 Tất cả Workers Registry</h2>
+        <div class="hld-dash-search-box">
+          <input id="hld-table-search" class="hld-dash-input hld-dash-btn-sm" placeholder="🔍 Tìm theo Pod ID, trạng thái..." oninput="hldDashFilterTable()">
+        </div>
+      </div>
+      <div class="hld-dash-table-scroll">
+        <table class="hld-dash-table">
+          <thead>
+            <tr>
+              <th>Mã Pod ID</th>
+              <th>Loại GPU</th>
+              <th>Trạng thái</th>
+              <th>Địa chỉ ComfyUI</th>
+              <th>Thời gian Ghim (VIP)</th>
+              <th style="text-align: right;">Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="hld-table-tbody">
+            <tr>
+              <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                Đang nạp danh sách workers từ Redis...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── MAIN ACTION GRID ── -->
+    <div class="hld-dash-action-grid">
+      
+      <!-- WARMUP / DEPLOY VIP -->
+      <div class="hld-dash-card">
+        <div class="hld-dash-card-title">🚀 Khởi tạo máy VIP (Warmup)</div>
+        <div class="hld-dash-field">
+          <label>Loại GPU Worker</label>
+          <select id="hld-warm-type" class="hld-dash-select">
+            <option value="video">🎬 VIP Video (RTX 5090 / L40S)</option>
+            <option value="image">🖼️ VIP Image (RTX 4500 Ada / 4090)</option>
+            <option value="any">🔀 Any Worker (Mặc định)</option>
+          </select>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="hld-dash-field">
+            <label>Số lượng</label>
+            <input id="hld-warm-count" class="hld-dash-input" type="number" value="1" min="1" max="5">
+          </div>
+          <div class="hld-dash-field">
+            <label>Ghim (Giờ)</label>
+            <input id="hld-warm-hours" class="hld-dash-input" type="number" value="24" min="1" max="168">
+          </div>
+        </div>
+        <button class="hld-dash-btn hld-dash-btn-purple" onclick="hldDashWarmup()">🚀 Deploy VIP Pods</button>
+        <div class="hld-dash-response-box" id="hld-res-warmup"></div>
+      </div>
+
+      <!-- REGISTER POD MANUALLY -->
+      <div class="hld-dash-card">
+        <div class="hld-dash-card-title">📌 Đăng ký Pod thủ công</div>
+        <div class="hld-dash-field">
+          <label>Mã Pod ID</label>
+          <input id="hld-reg-id" class="hld-dash-input hld-dash-input-mono" placeholder="Ví dụ: gobheagkjto88v">
+        </div>
+        <div class="hld-dash-field">
+          <label>Tên card GPU (Tùy chọn)</label>
+          <input id="hld-reg-gpu" class="hld-dash-input" placeholder="Ví dụ: NVIDIA GeForce RTX 5090">
+        </div>
+        <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 10px;">
+          <div class="hld-dash-field">
+            <label>Chọn Loại Worker</label>
+            <select id="hld-reg-type" class="hld-dash-select">
+              <option value="video">🎬 Video Worker</option>
+              <option value="image">🖼️ Image Worker</option>
+              <option value="any">🔀 Any (Hỗn hợp)</option>
+            </select>
+          </div>
+          <div class="hld-dash-field">
+            <label>Pin (Giờ)</label>
+            <input id="hld-reg-pin" class="hld-dash-input" type="number" value="24" min="0">
+          </div>
+        </div>
+        <button class="hld-dash-btn hld-dash-btn-green" onclick="hldDashRegister()">📌 Đăng ký vào Redis</button>
+        <div class="hld-dash-response-box" id="hld-res-register"></div>
+      </div>
+
+      <!-- MANUAL SCALE UP -->
+      <div class="hld-dash-card">
+        <div class="hld-dash-card-title">⚡ Tạo nhanh 1 Worker máy thường</div>
+        <p style="font-size: 12px; color: var(--text-muted); line-height: 1.5;">
+          Khởi chạy lập tức 1 máy thường (không ghim VIP) trên RunPod. Pod sẽ tự động dừng/tắt sau 10 phút rảnh rỗi.
+        </p>
+        <div class="hld-dash-field">
+          <label>Loại Worker cần thêm</label>
+          <select id="hld-scale-type" class="hld-dash-select">
+            <option value="video">🎬 Video (Ưu tiên card RTX 5090...)</option>
+            <option value="image">🖼️ Image (Ưu tiên card RTX 4500...)</option>
+          </select>
+        </div>
+        <button class="hld-dash-btn hld-dash-btn-blue" onclick="hldDashScaleUp()">⚡ Scale Up 1 Worker</button>
+        <div class="hld-dash-response-box" id="hld-res-scaleup"></div>
+      </div>
+
+      <!-- JOB STATUS TRACKER -->
+      <div class="hld-dash-card">
+        <div class="hld-dash-card-title">🔍 Truy vấn & Kiểm tra Job</div>
+        <div class="hld-dash-field">
+          <label>Nhập Mã Job ID</label>
+          <input id="hld-job-id" class="hld-dash-input hld-dash-input-mono" placeholder="Ví dụ: lhfs_vid_939348d569ab8822ef14">
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="hld-dash-btn hld-dash-btn-blue" style="flex: 2;" onclick="hldDashCheckJob()">🔍 Check Job</button>
+          <button class="hld-dash-btn hld-dash-btn-red" style="flex: 1.5; font-size:12px;" onclick="hldDashRecoverJob()">🩺 Tự Cứu Job</button>
+        </div>
+        <div class="hld-dash-response-box" id="hld-res-job"></div>
+      </div>
+
+      <!-- BULK DOWNLOADER -->
+      <div class="hld-dash-card">
+        <div class="hld-dash-card-title">📥 Tải Về Hàng Loạt (Bulk Downloader)</div>
+        <div class="hld-dash-field">
+          <label>Chọn Ngày Cần Tải</label>
+          <input id="hld-bulk-date" class="hld-dash-input" type="date">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 5px;">
+          <button class="hld-dash-btn hld-dash-btn-blue" onclick="hldDashBulkDownload('video')">🎬 Tải Tất Cả Video</button>
+          <button class="hld-dash-btn hld-dash-btn-gold" onclick="hldDashBulkDownload('image')">🖼️ Tải Tất Cả Image</button>
+        </div>
+        <div class="hld-dash-response-box" id="hld-res-bulk"></div>
+        
+        <div id="hld-bulk-result-section" style="margin-top: 10px; display: none;">
+          <div style="font-size: 11px; color: var(--gold); font-weight:600; margin-bottom: 6px;" id="hld-bulk-status-msg"></div>
+          <textarea id="hld-bulk-urls" class="hld-dash-input hld-dash-input-mono" rows="3" style="font-size:10px; resize: vertical; background: rgba(15, 23, 42, 0.9);" readonly></textarea>
+          <button class="hld-dash-btn hld-dash-btn-gray hld-dash-btn-sm" style="margin-top: 6px;" onclick="hldDashCopyBulkUrls()">📋 Copy danh sách URL</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── UTILITIES BAR ── -->
+    <div class="hld-dash-utils-card">
+      <div class="hld-dash-card-title" style="border-bottom:none; margin-bottom:12px;">🛠️ Công cụ dọn dẹp & Đồng bộ hóa</div>
+      <div class="hld-dash-utils-buttons">
+        <button class="hld-dash-btn hld-dash-btn-gray" onclick="hldDashAction('reconcile')">🔄 Reconcile (Sync RunPod)</button>
+        <button class="hld-dash-btn hld-dash-btn-gray" onclick="hldDashAction('fix-busy')">🔧 Sửa kẹt Pod (Fix Busy)</button>
+        <button class="hld-dash-btn hld-dash-btn-gray" onclick="hldDashAction('cleanup-zombies')">🧹 Quét Ghost Pods (Zombies)</button>
+        <button class="hld-dash-btn hld-dash-btn-gray" onclick="hldDashAction('warmup-cancel')">🔓 Hủy ghim tất cả VIP</button>
+        <button class="hld-dash-btn hld-dash-btn-gray" onclick="hldDashAction('flush-workers')">🗑️ Reset Redis Registry</button>
+      </div>
+      <div class="hld-dash-response-box" id="hld-res-utils" style="margin-top: 15px;"></div>
+    </div>
+
+    <!-- ── RECENT JOBS TABLE ── -->
+    <div class="hld-dash-table-card" id="hld-jobs-section">
+      <div class="hld-dash-table-header">
+        <h2>📋 50 Jobs Gần Nhất</h2>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+          <select id="hld-job-filter-type" class="hld-dash-select hld-dash-btn-sm" style="width: auto; height: 32px; padding: 2px 10px; background: rgba(15, 23, 42, 0.85); border-color: var(--border-color); color: var(--text);" onchange="hldDashFilterRecentJobs()">
+            <option value="all">🔍 Tất Cả Loại Job</option>
+            <option value="image">🖼️ Chỉ Image Jobs</option>
+            <option value="video">🎬 Chỉ Video Jobs</option>
+          </select>
+          <button class="hld-dash-btn hld-dash-btn-gray hld-dash-btn-sm" style="width: auto; margin:0; height: 32px;" onclick="hldDashLoadRecentJobs()">⟳ Load Jobs</button>
+        </div>
+      </div>
+      <div class="hld-dash-table-scroll">
+        <table class="hld-dash-table">
+          <thead>
+            <tr>
+              <th>Job ID</th>
+              <th>Loại Job</th>
+              <th>Trạng thái</th>
+              <th>Ảnh Đầu Vào</th>
+              <th>Kết Quả Đầu Ra</th>
+              <th>Thời Gian Tạo</th>
+              <th>Hoàn Thành (Tổng chạy)</th>
+              <th style="text-align: right;">Cứu Hộ</th>
+            </tr>
+          </thead>
+          <tbody id="hld-jobs-tbody">
+            <tr>
+              <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                Chưa nạp dữ liệu. Đang quét...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── DANGEROUS SECTION ── -->
+    <div class="hld-dash-utils-card" style="border-color: rgba(244, 63, 94, 0.2); background: rgba(244, 63, 94, 0.02);">
+      <div class="hld-dash-card-title" style="border-bottom:none; color: var(--red); margin-bottom: 5px;">💣 KHU VỰC NGUY HIỂM</div>
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+        <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5;">
+          Tắt và hủy bỏ (terminate) **tất cả** máy ảo đang chạy trên cả RunPod Secure/Community Cloud và xóa sạch dữ liệu registry trong Redis.
+        </p>
+        <button class="hld-dash-btn hld-dash-btn-red" style="width: auto; padding: 10px 24px;" onclick="hldDashTerminateAll()" id="hld-btn-termall">💣 XÓA SẠCH MÁY (TERMINATE ALL)</button>
+      </div>
+      <div class="hld-dash-response-box" id="hld-res-termall" style="margin-top: 15px;"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── TOAST CONTAINER ── -->
+<div class="hld-dash-toast-wrap" id="hld-toast-wrap"></div>
+
+<!-- ── JAVASCRIPT LOGIC ── -->
+<script>
+  // Save credentials automatically in localStorage
+  window.addEventListener('DOMContentLoaded', () => {
+    // Set default date for bulk downloader (today)
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${yyyy}-${mm}-${dd}`;
+    const bulkDateEl = document.getElementById('hld-bulk-date');
+    if (bulkDateEl) bulkDateEl.value = todayStr;
+    
+    // Khởi động luồng xác thực bảo mật Admin
+    hldVerifySession();
+  });
+
+  // Helper selectors
+  const hld$ = id => document.getElementById(id);
+
+  function hldDashGetConfig() {
+    return {
+      url: hld$('hld-cfg-url').value.trim().replace(/\/$/, ''),
+      key: hld$('hld-cfg-key').value.trim()
+    };
+  }
+
+  function hldDashSaveConfig() {
+    const cfg = hldDashGetConfig();
+    localStorage.setItem('hld_dispatcher_url', cfg.url);
+    localStorage.setItem('hld_dispatcher_key', cfg.key);
+    hldDashToast('💾 Đã lưu cấu hình kết nối vào trình duyệt!', 'ok');
+    hldDashRefresh();
+  }
+
+  function hldDashToast(msg, type = 'ok') {
+    const wrap = hld$('hld-toast-wrap');
+    const el = document.createElement('div');
+    el.className = `hld-dash-toast ${type === 'ok' ? 'ok' : 'err'}`;
+    el.textContent = msg;
+    wrap.appendChild(el);
+    setTimeout(() => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(-10px)';
+      el.style.transition = 'all 0.3s ease';
+      setTimeout(() => el.remove(), 300);
+    }, 4000);
+  }
+
+  // API Call Wrapper
+  async function hldDashCallApi(method, path, body = null) {
+    const cfg = hldDashGetConfig();
+    const headers = { 'Content-Type': 'application/json' };
+    if (cfg.key) {
+      headers['Authorization'] = cfg.key.startsWith('Bearer ') ? cfg.key : `Bearer ${cfg.key}`;
+    }
+    
+    const options = { method, headers };
+    if (body) options.body = JSON.stringify(body);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    options.signal = controller.signal;
+
+    try {
+      const response = await fetch(cfg.url + path, options);
+      clearTimeout(timeoutId);
+      const data = await response.json().catch(() => ({}));
+      return { ok: response.ok, status: response.status, data };
+    } catch (e) {
+      clearTimeout(timeoutId);
+      return { ok: false, status: 0, data: { detail: e.name === 'AbortError' ? 'Yêu cầu bị Timeout (20s)' : e.message } };
+    }
+  }
+
+  // Refresh Stats & Workers List
+  let hldWorkersCache = [];
+  async function hldDashRefresh() {
+    const statsChip = hld$('hld-s-idle');
+    try {
+      const [statsRes, workersRes] = await Promise.all([
+        hldDashCallApi('GET', '/stats'),
+        hldDashCallApi('GET', '/workers')
+      ]);
+
+      if (statsRes.ok) {
+        const stats = statsRes.data;
+        const w = stats.workers || {};
+        hld$('hld-s-idle').textContent = w.idle ?? 0;
+        hld$('hld-s-busy').textContent = w.busy ?? 0;
+        hld$('hld-s-booting').textContent = w.booting ?? 0;
+        hld$('hld-s-stopped').textContent = (w.stopped ?? 0) + (w.dead ?? 0);
+        hld$('hld-s-queue').textContent = stats.queue_depth ?? 0;
+      }
+
+      if (workersRes.ok) {
+        hldWorkersCache = workersRes.data || [];
+        hldDashRenderTable(hldWorkersCache);
+      } else {
+        hld$('hld-table-tbody').innerHTML = `
+          <tr>
+            <td colspan="6" style="text-align: center; color: var(--red); padding: 30px;">
+              ⚠️ Lỗi nạp dữ liệu: ${workersRes.data.detail || 'Không thể kết nối API Dispatcher'}
+            </td>
+          </tr>
+        `;
+      }
+
+      // Tải danh sách 50 jobs gần nhất
+      hldDashLoadRecentJobs();
+
+    } catch(e) {
+      hldDashToast('Kết nối thất bại!', 'err');
+    }
+  }
+
+  // Auto sync interval
+  setInterval(hldDashRefresh, 15000);
+
+  function hldScrollToTable() {
+    hld$('hld-table-section').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  // Render Table
+  function hldDashRenderTable(workers) {
+    const tbody = hld$('hld-table-tbody');
+    if (!workers || workers.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">
+            Không có worker nào được đăng ký trong Redis.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+
+    tbody.innerHTML = workers.map(w => {
+      const isVip = w.pinned_until && w.pinned_until > now;
+      const pinnedHrs = isVip ? Math.max(0, Math.round((w.pinned_until - now) / 3600 * 10) / 10) : 0;
+      
+      let vipBadge = '<span style="color: var(--text-muted); opacity: 0.5;">—</span>';
+      if (isVip) {
+        vipBadge = `<span style="color: var(--gold); font-weight: 700; display: inline-flex; align-items:center; gap:4px;">
+          📌 Pinned (${pinnedHrs}h)
+        </span>`;
+      }
+
+      const statusClass = `hld-dash-badge-${w.status || 'idle'}`;
+      const typeClass = `hld-dash-badge-${w.worker_type || 'any'}`;
+      const typeLabel = w.worker_type === 'image' ? '🖼️ Image' : (w.worker_type === 'video' ? '🎬 Video' : '🔀 Any');
+      
+      const endpoint = w.proxy_url || (w.ip && w.port ? `http://${w.ip}:${w.port}` : '');
+      const endpointHtml = endpoint 
+        ? `<a class="hld-dash-endpoint-link mono" href="${endpoint}" target="_blank">🔗 Comfy Link</a>`
+        : '<span style="color: var(--text-muted);">chưa có proxy</span>';
+
+      const statusBadge = `<span class="hld-dash-badge ${statusClass}">${w.status || 'idle'}</span>`;
+      const typeBadge = `<span class="hld-dash-badge ${typeClass}">${typeLabel}</span>`;
+
+      const gpuHtml = w.gpu_name
+        ? `<div style="font-size:11px; color:var(--text-muted); margin-top:5px; font-family:var(--font-mono, monospace); font-weight:600; letter-spacing:0.3px;">🎴 ${w.gpu_name}</div>`
+        : `<div style="font-size:11px; color:rgba(255,255,255,0.25); margin-top:5px; font-style:italic;">🎴 Không rõ GPU</div>`;
+
+      // Custom Operations depending on status
+      let actionButtons = '';
+      actionButtons += `<button class="hld-dash-btn hld-dash-btn-blue hld-dash-btn-sm" style="width:auto; margin-right:4px;" onclick="hldDashActionScheduleShutdown('${w.pod_id}')" title="Hẹn giờ tự tắt nếu rảnh">⏱️ Hẹn tắt</button>`;
+      if (w.status !== 'stopped') {
+        actionButtons += `<button class="hld-dash-btn hld-dash-btn-yellow hld-dash-btn-sm" style="width:auto; margin-right:4px;" onclick="hldDashActionPause('${w.pod_id}')" title="Tạm tắt máy">⏸ Pause</button>`;
+      }
+      actionButtons += `<button class="hld-dash-btn hld-dash-btn-red hld-dash-btn-sm" style="width:auto;" onclick="hldDashActionTerminate('${w.pod_id}')" title="Xóa bỏ vĩnh viễn">✕ Delete</button>`;
+
+      return `
+        <tr data-pod-id="${w.pod_id}">
+          <td class="mono" style="font-weight: 600; color: #fff;">${w.pod_id}</td>
+          <td>${typeBadge}${gpuHtml}</td>
+          <td>${statusBadge}</td>
+          <td>${endpointHtml}</td>
+          <td>${vipBadge}</td>
+          <td style="text-align: right; white-space: nowrap;">
+            ${actionButtons}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // Filter Search
+  function hldDashFilterTable() {
+    const q = hld$('hld-table-search').value.toLowerCase().trim();
+    if (!q) {
+      hldDashRenderTable(hldWorkersCache);
+      return;
+    }
+    const filtered = hldWorkersCache.filter(w => 
+      w.pod_id.toLowerCase().includes(q) || 
+      (w.status || '').toLowerCase().includes(q) || 
+      (w.worker_type || '').toLowerCase().includes(q)
+    );
+    hldDashRenderTable(filtered);
+  }
+
+  // Warmup VIP action
+  async function hldDashWarmup() {
+    const btn = hld$('hld-res-warmup');
+    btn.className = 'hld-dash-response-box visible';
+    btn.textContent = '⏳ Đang gửi yêu cầu warmup VIP...';
+    
+    const count = parseInt(hld$('hld-warm-count').value) || 1;
+    const hours = parseFloat(hld$('hld-warm-hours').value) || 24;
+    const type = hld$('hld-warm-type').value;
+
+    const payload = {
+      count: count,
+      duration_hours: hours,
+      worker_type: type
+    };
+
+    const res = await hldDashCallApi('POST', '/admin/warmup', payload);
+    if (res.ok) {
+      btn.className = 'hld-dash-response-box visible ok';
+      btn.textContent = `🚀 Khởi chạy thành công ${count} Pod VIP (${type.toUpperCase()})!\nThời gian ghim: ${hours} Giờ.\n\nKết quả từ Dispatcher:\n` + JSON.stringify(res.data, null, 2);
+      hldDashToast('✅ Đã deploy nhóm Pod VIP!', 'ok');
+      hldDashRefresh();
+    } else {
+      btn.className = 'hld-dash-response-box visible err';
+      btn.textContent = `❌ Lỗi: ` + JSON.stringify(res.data, null, 2);
+      hldDashToast('❌ Khởi chạy VIP thất bại!', 'err');
+    }
+  }
+
+  // Register Pod action
+  async function hldDashRegister() {
+    const resEl = hld$('hld-res-register');
+    resEl.className = 'hld-dash-response-box visible';
+    resEl.textContent = '⏳ Đang đăng ký...';
+
+    const podId = hld$('hld-reg-id').value.trim();
+    const gpuName = hld$('hld-reg-gpu').value.trim();
+    const type = hld$('hld-reg-type').value;
+    const pin = parseFloat(hld$('hld-reg-pin').value) || 0;
+
+    if (!podId) {
+      hldDashToast('⚠️ Nhập Pod ID!', 'err');
+      resEl.className = 'hld-dash-response-box visible err';
+      resEl.textContent = '⚠️ Hãy nhập Pod ID của máy bạn muốn đăng ký.';
+      return;
+    }
+
+    const payload = {
+      pod_id: podId,
+      proxy_url: `https://${podId}-8188.proxy.runpod.net`,
+      worker_type: type,
+      pin_hours: pin,
+      gpu_name: gpuName
+    };
+
+    const res = await hldDashCallApi('POST', '/admin/register-pod', payload);
+    if (res.ok) {
+      resEl.className = 'hld-dash-response-box visible ok';
+      resEl.textContent = `📌 Đăng ký Pod thành công!\n\nChi tiết:\n` + JSON.stringify(res.data, null, 2);
+      hldDashToast(`✅ Pod ${podId} đã đăng ký!`, 'ok');
+      hld$('hld-reg-id').value = '';
+      hld$('hld-reg-gpu').value = '';
+      hldDashRefresh();
+    } else {
+      resEl.className = 'hld-dash-response-box visible err';
+      resEl.textContent = `❌ Lỗi: ` + JSON.stringify(res.data, null, 2);
+      hldDashToast('❌ Đăng ký thất bại!', 'err');
+    }
+  }
+
+  // Manual Scale Up 1 worker
+  async function hldDashScaleUp() {
+    const resEl = hld$('hld-res-scaleup');
+    resEl.className = 'hld-dash-response-box visible';
+    resEl.textContent = '⏳ Đang khởi tạo máy thường...';
+
+    const type = hld$('hld-scale-type').value;
+    const res = await hldDashCallApi('POST', '/admin/scale-up', { worker_type: type });
+
+    if (res.ok) {
+      resEl.className = 'hld-dash-response-box visible ok';
+      resEl.textContent = `⚡ Scale Up 1 máy thành công!\n\n` + JSON.stringify(res.data, null, 2);
+      hldDashToast('✅ Đang boot thêm máy!', 'ok');
+      hldDashRefresh();
+    } else {
+      resEl.className = 'hld-dash-response-box visible err';
+      resEl.textContent = `❌ Lỗi: ` + JSON.stringify(res.data, null, 2);
+      hldDashToast('❌ Scale Up thất bại!', 'err');
+    }
+  }
+
+  // Check Job
+  async function hldDashCheckJob() {
+    const resEl = hld$('hld-res-job');
+    const jobId = hld$('hld-job-id').value.trim();
+    if (!jobId) {
+      hldDashToast('⚠️ Vui lòng nhập Job ID!', 'err');
+      return;
+    }
+
+    resEl.className = 'hld-dash-response-box visible';
+    resEl.textContent = '⏳ Đang quét dữ liệu job...';
+
+    const res = await hldDashCallApi('GET', `/jobs/${jobId}`);
+    if (res.ok) {
+      resEl.className = 'hld-dash-response-box visible ok';
+      // Giảm độ dài workflow trong logs hiển thị
+      const data = res.data;
+      if (data && data.workflow) {
+        data.workflow = `<workflow JSON data (~${JSON.stringify(data.workflow).length} chars)>`;
+      }
+      resEl.textContent = JSON.stringify(data, null, 2);
+      hldDashToast('🔍 Đã lấy thông tin Job!', 'ok');
+    } else {
+      resEl.className = 'hld-dash-response-box visible err';
+      resEl.textContent = `❌ Không tìm thấy job hoặc lỗi API:\n` + JSON.stringify(res.data, null, 2);
+      hldDashToast('❌ Lỗi check Job!', 'err');
+    }
+  }
+
+  // Recover Job stuck
+  async function hldDashRecoverJob() {
+    const resEl = hld$('hld-res-job');
+    const jobId = hld$('hld-job-id').value.trim();
+    if (!jobId) {
+      hldDashToast('⚠️ Vui lòng nhập Job ID!', 'err');
+      return;
+    }
+
+    resEl.className = 'hld-dash-response-box visible';
+    resEl.textContent = '🩺 Đang kích hoạt cứu hộ job stuck...';
+
+    const res = await hldDashCallApi('POST', '/admin/job-recover', { job_id: jobId });
+    if (res.ok) {
+      resEl.className = 'hld-dash-response-box visible ok';
+      resEl.textContent = `🩺 Cứu hộ job thành công!\nJob đã hoàn thành và upload lên R2.\n\n` + JSON.stringify(res.data, null, 2);
+      hldDashToast('🩺 Đã cứu hộ job stuck!', 'ok');
+      hldDashRefresh();
+    } else {
+      resEl.className = 'hld-dash-response-box visible err';
+      resEl.textContent = `❌ Lỗi cứu hộ:\n` + JSON.stringify(res.data, null, 2);
+      hldDashToast('❌ Cứu hộ thất bại!', 'err');
+    }
+  }
+
+  // General POST action
+  async function hldDashAction(action) {
+    const resEl = hld$('hld-res-utils');
+    resEl.className = 'hld-dash-response-box visible';
+    resEl.textContent = `⏳ Đang thực hiện ${action.toUpperCase()}...`;
+
+    const res = await hldDashCallApi('POST', `/admin/${action}`, {});
+    if (res.ok) {
+      resEl.className = 'hld-dash-response-box visible ok';
+      resEl.textContent = `✅ Thành công!\n\n` + JSON.stringify(res.data, null, 2);
+      hldDashToast(`✅ Thực hiện ${action} thành công!`, 'ok');
+      hldDashRefresh();
+    } else {
+      resEl.className = 'hld-dash-response-box visible err';
+      resEl.textContent = `❌ Thất bại:\n` + JSON.stringify(res.data, null, 2);
+      hldDashToast(`❌ Thao tác ${action} thất bại!`, 'err');
+    }
+  }
+
+  // Single Pod Pause Action
+  async function hldDashActionPause(podId) {
+    if (!confirm(`Tạm dừng (Pause) Pod ${podId} để giải phóng GPU tiết kiệm tiền?\nPod vẫn giữ nguyên phân vùng ổ cứng /workspace.`)) return;
+    hldDashToast(`⏳ Đang pause pod ${podId}...`, 'ok');
+    const res = await hldDashCallApi('POST', '/admin/pause-pod', { pod_id: podId });
+    if (res.ok) {
+      hldDashToast(`⏸ Pod ${podId} đã tạm dừng!`, 'ok');
+      hldDashRefresh();
+    } else {
+      hldDashToast(`❌ Lỗi pause pod!`, 'err');
+    }
+  }
+
+  // Single Pod Terminate Action
+  async function hldDashActionTerminate(podId) {
+    if (!confirm(`⚠️ CẢNH BÁO: Xóa bỏ hoàn toàn Pod ${podId}?\nMọi dữ liệu trên máy ảo này sẽ mất sạch. Thao tác không thể hoàn tác.`)) return;
+    hldDashToast(`⏳ Đang hủy pod ${podId}...`, 'ok');
+    const res = await hldDashCallApi('POST', '/admin/terminate-pod', { pod_id: podId });
+    if (res.ok) {
+      hldDashToast(`🗑 Pod ${podId} đã được xóa!`, 'ok');
+      hldDashRefresh();
+    } else {
+      hldDashToast(`❌ Lỗi xóa pod!`, 'err');
+    }
+  }
+
+  // Terminate All (DANGEROUS)
+  async function hldDashTerminateAll() {
+    const safety = prompt('⚠️ XÓA HỦY SẠCH SẼ TOÀN BỘ MÁY RUNPOD?\nHãy gõ chữ "YES" để xác nhận thao tác cực kỳ nguy hiểm này:');
+    if (safety !== 'YES') {
+      hldDashToast('Hủy bỏ thao tác xóa sạch.', 'ok');
+      return;
+    }
+
+    const btn = hld$('hld-btn-termall');
+    const resEl = hld$('hld-res-termall');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="hld-dash-spinner"></span> ĐANG HỦY TOÀN BỘ MÁY...';
+    resEl.className = 'hld-dash-response-box visible';
+    resEl.textContent = '⏳ Đang quét hủy toàn bộ pod...';
+
+    const res = await hldDashCallApi('POST', '/admin/terminate-all', {});
+    if (res.ok) {
+      resEl.className = 'hld-dash-response-box visible ok';
+      resEl.textContent = `💣 SẠCH SẼ!\nĐã xóa toàn bộ máy ảo và dọn Redis.\n\n` + JSON.stringify(res.data, null, 2);
+      hldDashToast('💣 Toàn bộ máy ảo đã bị xóa sạch!', 'ok');
+      hldDashRefresh();
+    } else {
+      resEl.className = 'hld-dash-response-box visible err';
+      resEl.textContent = `❌ Lỗi xóa:\n` + JSON.stringify(res.data, null, 2);
+      hldDashToast('❌ Lỗi hủy máy!', 'err');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '💣 XÓA SẠCH MÁY (TERMINATE ALL)';
+  }
+
+  // Fetch and Render 50 Recent Jobs
+  let hldJobsCache = [];
+
+  async function hldDashLoadRecentJobs() {
+    const tbody = hld$('hld-jobs-tbody');
+    try {
+      const res = await hldDashCallApi('GET', '/admin/recent-jobs?limit=50');
+      if (!res.ok) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--red); padding:20px;">Lỗi tải danh sách jobs: ${res.data.detail || 'Không thể kết nối'}</td></tr>`;
+        return;
+      }
+
+      hldJobsCache = res.data || [];
+      hldDashFilterRecentJobs(); // Render based on current filter value
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--red); padding:20px;">Lỗi: ${e.message}</td></tr>`;
+    }
+  }
+
+  // Filter and Render Recent Jobs Table
+  function hldDashFilterRecentJobs() {
+    const tbody = hld$('hld-jobs-tbody');
+    const filterVal = hld$('hld-job-filter-type').value;
+
+    const filtered = filterVal === 'all'
+      ? hldJobsCache
+      : hldJobsCache.filter(j => (j.output_type || 'video') === filterVal);
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:20px;">Không có job nào phù hợp bộ lọc</td></tr>`;
+      return;
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+
+    tbody.innerHTML = filtered.map(j => {
+      const typeClass = `hld-dash-badge-${j.output_type || 'video'}`;
+      const typeLabel = j.output_type === 'image' ? '🖼️ Image' : '🎬 Video';
+      const typeBadge = `<span class="hld-dash-badge ${typeClass}">${typeLabel}</span>`;
+
+      let statusClass = 'hld-dash-badge-stopped';
+      if (j.status === 'done') statusClass = 'hld-dash-badge-idle';
+      else if (j.status === 'failed') statusClass = 'hld-dash-badge-dead';
+      else if (j.status === 'running' || j.status === 'processing') statusClass = 'hld-dash-badge-busy';
+      else if (j.status === 'waiting_comfyui') statusClass = 'hld-dash-badge-booting';
+
+      const statusBadge = `<span class="hld-dash-badge ${statusClass}">${j.status || 'queued'}</span>`;
+
+      // User Input Link
+      const userImg = j.user_image_url 
+        ? `<a class="hld-dash-endpoint-link mono" href="${j.user_image_url}" target="_blank">🔗 View Input</a>`
+        : '<span style="color:var(--text-muted);">—</span>';
+
+      // Result Output Link
+      let resultLink = '<span style="color:var(--text-muted);">chưa có</span>';
+      if (j.status === 'done' && j.result_url) {
+        resultLink = `<a class="hld-dash-endpoint-link mono" style="color:var(--gold); font-weight:700;" href="${j.result_url}" target="_blank">🍺 Download</a>`;
+      } else if (j.status === 'failed') {
+        resultLink = `<span style="color:var(--red); font-size:11px;" title="${j.error || ''}">⚠️ Lỗi</span>`;
+      }
+
+      // Time format
+      let timeStr = '—';
+      if (j.created_at) {
+        const d = new Date(j.created_at * 1000);
+        timeStr = d.toLocaleTimeString('vi-VN') + '<br><span style="color:var(--text-muted);font-size:10px;">' + d.toLocaleDateString('vi-VN') + '</span>';
+      }
+
+      // Completion Time and Duration
+      let compStr = '<span style="color:var(--text-muted); opacity: 0.5;">—</span>';
+      if (j.status === 'done' || j.status === 'failed') {
+        if (j.updated_at) {
+          const dComp = new Date(j.updated_at * 1000);
+          const compTime = dComp.toLocaleTimeString('vi-VN');
+          
+          let durationStr = '';
+          const createdVal = parseInt(j.created_at) || 0;
+          const updatedVal = parseInt(j.updated_at) || 0;
+          if (createdVal && updatedVal > createdVal) {
+            const diff = updatedVal - createdVal;
+            if (diff < 60) {
+              durationStr = `${diff}s`;
+            } else {
+              const mins = Math.floor(diff / 60);
+              const secs = diff % 60;
+              durationStr = `${mins}m ${secs}s`;
+            }
+            durationStr = `<br><span style="color:var(--cyan); font-weight:600; font-size:10px;">⏱️ Chạy: ${durationStr}</span>`;
+          }
+          compStr = `${compTime}${durationStr}`;
+        }
+      } else if (j.status === 'running' || j.status === 'processing' || j.status === 'waiting_comfyui') {
+        const createdVal = parseInt(j.created_at) || now;
+        let elapsed = now - createdVal;
+        if (elapsed > 0) {
+          let elapsedStr = '';
+          if (elapsed < 60) {
+            elapsedStr = `${elapsed}s`;
+          } else {
+            const mins = Math.floor(elapsed / 60);
+            const secs = elapsed % 60;
+            elapsedStr = `${mins}m ${secs}s`;
+          }
+          compStr = `<span style="color:var(--yellow); font-size:11px; font-weight:600; animation: hld-dash-pulse 1.8s infinite;">⏳ Chạy: ${elapsedStr}...</span>`;
+        }
+      }
+
+      // Recover Action Button (Only show if not done/failed)
+      let actionBtn = '<span style="color:var(--text-muted); opacity:0.4;">—</span>';
+      if (j.status !== 'done' && j.status !== 'failed') {
+        actionBtn = `<button class="hld-dash-btn hld-dash-btn-red hld-dash-btn-sm" style="width:auto; margin:0;" onclick="hldDashActionRecoverInline('${j.job_id}')" title="Cứu hộ ngay">🩺 Cứu</button>`;
+      }
+
+      return `
+        <tr>
+          <td class="mono" style="font-weight: 600; color: #fff;">${j.job_id}</td>
+          <td>${typeBadge}</td>
+          <td>${statusBadge}</td>
+          <td>${userImg}</td>
+          <td>${resultLink}</td>
+          <td>${timeStr}</td>
+          <td>${compStr}</td>
+          <td style="text-align: right;">${actionBtn}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  async function hldDashActionRecoverInline(jobId) {
+    if (!confirm(`Kích hoạt cứu hộ trực tiếp cho Job bị kẹt ${jobId}?`)) return;
+    hldDashToast(`🩺 Đang cứu hộ job ${jobId}...`, 'ok');
+    const res = await hldDashCallApi('POST', '/admin/job-recover', { job_id: jobId });
+    if (res.ok) {
+      hldDashToast(`🩺 Cứu hộ job ${jobId} thành công!`, 'ok');
+      hldDashRefresh();
+    } else {
+      hldDashToast(`❌ Lỗi cứu hộ job!`, 'err');
+    }
+  }
+
+  // Bulk Downloader Logic
+  async function hldDashBulkDownload(type) {
+    const dateVal = hld$('hld-bulk-date').value;
+    if (!dateVal) {
+      hldDashToast('⚠️ Vui lòng chọn ngày để tải!', 'err');
+      return;
+    }
+
+    const resEl = hld$('hld-res-bulk');
+    if (resEl) {
+      resEl.className = 'hld-dash-response-box visible';
+      resEl.textContent = '⏳ Đang quét danh sách jobs từ Redis...';
+    }
+
+    // Quét danh sách job với giới hạn lớn (limit=2000) để lấy nhiều job cũ hơn
+    const res = await hldDashCallApi('GET', '/admin/recent-jobs?limit=2000');
+    if (!res.ok) {
+      hldDashToast('❌ Lỗi nạp danh sách jobs!', 'err');
+      if (resEl) {
+        resEl.className = 'hld-dash-response-box visible err';
+        resEl.textContent = `❌ Lỗi: ` + JSON.stringify(res.data, null, 2);
+      }
+      return;
+    }
+
+    const allJobs = res.data || [];
+    
+    // So khớp khoảng thời gian của ngày được chọn
+    const targetDate = new Date(dateVal);
+    const startTimestamp = Math.floor(new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 0, 0, 0).getTime() / 1000);
+    const endTimestamp = Math.floor(new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate(), 23, 59, 59).getTime() / 1000);
+
+    const filtered = allJobs.filter(j => {
+      const isType = (j.output_type || 'video') === type;
+      const isDone = j.status === 'done';
+      const hasUrl = !!j.result_url;
+      const createdAt = parseInt(j.created_at) || 0;
+      return isType && isDone && hasUrl && createdAt >= startTimestamp && createdAt <= endTimestamp;
+    });
+
+    const statusMsg = hld$('hld-bulk-status-msg');
+    const textarea = hld$('hld-bulk-urls');
+    const resultSection = hld$('hld-bulk-result-section');
+
+    if (filtered.length === 0) {
+      hldDashToast(`ℹ️ Không có ${type} hoàn thành vào ngày ${dateVal}`, 'err');
+      if (resEl) {
+        resEl.className = 'hld-dash-response-box visible err';
+        resEl.textContent = `Không tìm thấy bất kỳ job ${type.toUpperCase()} nào ở trạng thái 'done' trong khoảng thời gian:\n${new Date(startTimestamp*1000).toLocaleString('vi-VN')} đến ${new Date(endTimestamp*1000).toLocaleString('vi-VN')}`;
+      }
+      if (resultSection) resultSection.style.display = 'none';
+      return;
+    }
+
+    if (resEl) resEl.className = 'hld-dash-response-box'; // Ẩn log nếu thành công
+
+    const urls = filtered.map(j => j.result_url);
+    if (textarea) textarea.value = urls.join('\n');
+    
+    const formattedDate = targetDate.toLocaleDateString('vi-VN');
+    if (statusMsg) statusMsg.textContent = `🎉 Tìm thấy ${filtered.length} ${type} hoàn thành ngày ${formattedDate}. Đang tự động kích hoạt tải xuống...`;
+    if (resultSection) resultSection.style.display = 'block';
+
+    hldDashToast(`📥 Đang tiến hành tải xuống ${filtered.length} tệp ${type}...`, 'ok');
+
+    // Trigger tải xuống loạt có delay tránh trình duyệt chặn popup
+    urls.forEach((url, i) => {
+      setTimeout(() => {
+        const filename = url.substring(url.lastIndexOf('/') + 1) || `${filtered[i].job_id}.${type === 'video' ? 'mp4' : 'jpg'}`;
+        const a = Object.assign(document.createElement('a'), {
+          href: url,
+          download: filename,
+          target: '_blank',
+          rel: 'noopener noreferrer'
+        });
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }, i * 400); // 400ms delay
+    });
+  }
+
+  function hldDashCopyBulkUrls() {
+    const textarea = hld$('hld-bulk-urls');
+    if (!textarea || !textarea.value) return;
+    
+    textarea.select();
+    textarea.setSelectionRange(0, 99999);
+    
+    navigator.clipboard.writeText(textarea.value)
+      .then(() => hldDashToast('📋 Đã sao chép danh sách URL!', 'ok'))
+      .catch(() => hldDashToast('❌ Không thể sao chép tự động!', 'err'));
+  }
+
+  // Security Login Shield Logic (Admin Verification)
+  async function hldVerifySession() {
+    const savedUrl = localStorage.getItem('hld_dispatcher_url');
+    const savedKey = localStorage.getItem('hld_dispatcher_key');
+    
+    if (!savedUrl || !savedKey) {
+      // Chưa đăng nhập -> Hiện Login Shield, ẩn Dashboard chính
+      hld$('hld-dash-login-shield').classList.remove('hidden');
+      hld$('hld-dash-inner').style.display = 'none';
+      return;
+    }
+
+    // Điền tạm vào form để dùng
+    hld$('hld-cfg-url').value = savedUrl;
+    hld$('hld-cfg-key').value = savedKey;
+    hld$('hld-login-url').value = savedUrl;
+    hld$('hld-login-key').value = savedKey;
+
+    const errorEl = hld$('hld-login-error');
+    const loginBtn = hld$('hld-login-btn');
+    
+    errorEl.style.display = 'none';
+    loginBtn.disabled = true;
+    loginBtn.innerHTML = '<span class="hld-dash-spinner"></span> Đang kết nối server...';
+
+    // Gửi yêu cầu kiểm chứng Key
+    const res = await hldDashCallApi('GET', '/stats');
+    
+    loginBtn.disabled = false;
+    loginBtn.innerHTML = '🔑 Xác Thực & Kết Nối';
+
+    if (res.ok) {
+      // Mở khóa!
+      hld$('hld-dash-login-shield').classList.add('hidden');
+      hld$('hld-dash-inner').style.display = '';
+      hldDashToast('🔒 Đăng nhập Admin thành công!', 'ok');
+      hldDashRefresh();
+    } else {
+      // Key đã lưu bị sai -> Hiện Login Shield bắt đăng nhập lại
+      hld$('hld-dash-login-shield').classList.remove('hidden');
+      hld$('hld-dash-inner').style.display = 'none';
+      
+      errorEl.style.display = 'block';
+      errorEl.textContent = res.status === 401 
+        ? '⚠️ API Key đã hết hạn hoặc không chính xác.' 
+        : `⚠️ Lỗi kết nối server: ${res.data?.detail || 'Không thể liên lạc API Dispatcher'}`;
+    }
+  }
+
+  async function hldDashTryLogin() {
+    const url = hld$('hld-login-url').value.trim().replace(/\/$/, '');
+    const key = hld$('hld-login-key').value.trim();
+    const errorEl = hld$('hld-login-error');
+    const loginBtn = hld$('hld-login-btn');
+    const card = hld$('hld-login-card');
+
+    if (!url || !key) {
+      hldDashToast('⚠️ Vui lòng nhập đầy đủ URL và API Key!', 'err');
+      card.classList.add('hld-dash-login-shake');
+      setTimeout(() => card.classList.remove('hld-dash-login-shake'), 400);
+      return;
+    }
+
+    errorEl.style.display = 'none';
+    loginBtn.disabled = true;
+    loginBtn.innerHTML = '<span class="hld-dash-spinner"></span> Đang xác thực...';
+
+    // Gán tạm qua form chính để API call sử dụng
+    hld$('hld-cfg-url').value = url;
+    hld$('hld-cfg-key').value = key;
+
+    const res = await hldDashCallApi('GET', '/stats');
+
+    loginBtn.disabled = false;
+    loginBtn.innerHTML = '🔑 Xác Thực & Kết Nối';
+
+    if (res.ok) {
+      // Lưu vào localStorage
+      localStorage.setItem('hld_dispatcher_url', url);
+      localStorage.setItem('hld_dispatcher_key', key);
+      
+      hldDashToast('🔒 Đăng nhập Admin thành công!', 'ok');
+      
+      // Ẩn màn hình khóa và hiện Dashboard
+      hld$('hld-dash-login-shield').classList.add('hidden');
+      hld$('hld-dash-inner').style.display = '';
+      
+      hldDashRefresh();
+    } else {
+      // Thất bại -> Rung và báo lỗi
+      card.classList.add('hld-dash-login-shake');
+      setTimeout(() => card.classList.remove('hld-dash-login-shake'), 400);
+
+      errorEl.style.display = 'block';
+      errorEl.textContent = res.status === 401
+        ? '❌ Mật mã API Key không chính xác!'
+        : `❌ Lỗi kết nối: ${res.data?.detail || 'Không thể liên lạc server'}`;
+      hldDashToast('❌ Xác thực thất bại!', 'err');
+    }
+  }
+
+  // Schedule Shutdown Pod Action (⏱️ Hẹn tắt)
+  async function hldDashActionScheduleShutdown(podId) {
+    const minsInput = prompt(`⏱️ ĐẶT LỊCH HẸN GIỜ TỰ ĐỘNG TẮT POD:\n\nNhập số phút chờ rảnh rỗi cho Pod ${podId}:\n(Nếu sau khoảng thời gian này Pod không xử lý thêm bất kỳ job nào, hệ thống Dispatcher sẽ tự động tắt/xóa máy ảo để tiết kiệm chi phí)\n\nVí dụ: 10, 15, 30, 60`, "15");
+    if (minsInput === null) return; // Người dùng hủy bỏ
+    
+    const minutes = parseFloat(minsInput);
+    if (isNaN(minutes) || minutes <= 0) {
+      hldDashToast('⚠️ Số phút hẹn giờ không hợp lệ!', 'err');
+      return;
+    }
+
+    hldDashToast(`⏳ Đang thiết lập lịch tắt cho Pod ${podId} sau ${minutes} phút...`, 'ok');
+    
+    const res = await hldDashCallApi('POST', '/admin/schedule-shutdown', {
+      pod_id: podId,
+      minutes: minutes
+    });
+
+    if (res.ok) {
+      hldDashToast(`⏱️ Đặt lịch tắt Pod ${podId} sau ${minutes} phút thành công!`, 'ok');
+      hldDashRefresh();
+    } else {
+      hldDashToast(`❌ Lỗi thiết lập: ${res.data?.detail || 'Không rõ nguyên nhân'}`, 'err');
+    }
+  }
+</script>
