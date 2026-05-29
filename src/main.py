@@ -323,12 +323,11 @@ async def schedule_shutdown_pod(body: dict):
         raise HTTPException(status_code=400, detail="pod_id required")
         
     r = await get_redis()
-    w_key = f"{settings.WORKER_PREFIX}{pod_id}"
-    exists = await r.exists(w_key)
-    if not exists:
+    raw = await r.hget(settings.WORKERS_KEY, pod_id)
+    if not raw:
         raise HTTPException(status_code=404, detail=f"Pod {pod_id} not found in Redis registry")
         
-    w_data = await r.hgetall(w_key)
+    w_data = json.loads(raw)
     last_active_init = int(w_data.get("last_active") or 0)
     
     async def shutdown_task():
@@ -336,12 +335,12 @@ async def schedule_shutdown_pod(body: dict):
         await asyncio.sleep(minutes * 60)
         
         r_inner = await get_redis()
-        w_exists = await r_inner.exists(w_key)
-        if not w_exists:
+        raw_curr = await r_inner.hget(settings.WORKERS_KEY, pod_id)
+        if not raw_curr:
             logger.info(f"[schedule-shutdown] Pod {pod_id} không còn trong Redis. Bỏ qua.")
             return
             
-        w_curr = await r_inner.hgetall(w_key)
+        w_curr = json.loads(raw_curr)
         status = w_curr.get("status", "idle")
         last_active_curr = int(w_curr.get("last_active") or 0)
         
@@ -349,7 +348,9 @@ async def schedule_shutdown_pod(body: dict):
             logger.warning(f"[schedule-shutdown] Pod {pod_id} rảnh rỗi sau {minutes} phút (không có job mới). Tiến hành tự động tắt máy!")
             try:
                 # Đặt pinned_until về 0 trước để hủy ghim VIP (nếu có)
-                await r_inner.hset(w_key, "pinned_until", 0)
+                w_curr["pinned_until"] = 0
+                await r_inner.hset(settings.WORKERS_KEY, pod_id, json.dumps(w_curr))
+                
                 await runpod.terminate_pod(pod_id)
                 await pool.remove(pod_id)
                 logger.warning(f"[schedule-shutdown] Đã tự động tắt Pod {pod_id} thành công!")
