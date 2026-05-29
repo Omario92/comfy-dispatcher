@@ -510,22 +510,16 @@
 
     /* ── LOGIN SHIELD (GLASSMORPHISM) ── */
     .hld-dash-login-shield {
-      position: absolute;
-      inset: 0;
-      background: rgba(9, 11, 14, 0.88);
-      backdrop-filter: blur(25px);
-      -webkit-backdrop-filter: blur(25px);
-      z-index: 1000;
       display: flex;
       align-items: center;
       justify-content: center;
+      width: 100%;
+      min-height: 520px;
+      padding: 40px 10px;
       transition: opacity 0.4s ease, visibility 0.4s ease;
-      padding: 20px;
     }
     .hld-dash-login-shield.hidden {
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
+      display: none !important;
     }
     .hld-dash-login-card {
       background: rgba(22, 28, 41, 0.65);
@@ -874,6 +868,9 @@
 
 <!-- ── JAVASCRIPT LOGIC ── -->
 <script>
+  // Helper selectors
+  const hld$ = id => document.getElementById(id);
+
   // Save credentials automatically in localStorage
   window.addEventListener('DOMContentLoaded', () => {
     // Set default date for bulk downloader (today)
@@ -888,9 +885,6 @@
     // Khởi động luồng xác thực bảo mật Admin
     hldVerifySession();
   });
-
-  // Helper selectors
-  const hld$ = id => document.getElementById(id);
 
   function hldDashGetConfig() {
     return {
@@ -950,6 +944,11 @@
   // Refresh Stats & Workers List
   let hldWorkersCache = [];
   async function hldDashRefresh() {
+    // Nếu màn hình login shield đang hiển thị thì không chạy refresh tự động
+    const loginShield = hld$('hld-dash-login-shield');
+    if (loginShield && !loginShield.classList.contains('hidden')) {
+      return;
+    }
     const statsChip = hld$('hld-s-idle');
     try {
       const [statsRes, workersRes] = await Promise.all([
