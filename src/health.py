@@ -38,17 +38,20 @@ async def _check_all():
             proxy = _proxy_url(pod_id)
             age = int(time.time()) - w.get("last_active", 0)
             
-            # Fail-fast: check RunPod API to see if container crashed (exit status 1)
-            # Booting pod số lượng ít nên có thể gọi API mỗi cycle (ví dụ mỗi 30s)
-            pod_info = await runpod.get_pod(pod_id)
-            if pod_info and pod_info.get("desiredStatus") == "EXITED":
-                logger.error(f"[health] Pod {pod_id} failed to boot (container crashed or deadline exceeded). Terminating early.")
+            # Chỉ kiểm tra RunPod API nếu không phải pod thủ công (is_manual=True)
+            if not w.get("is_manual"):
                 try:
-                    await runpod.terminate_pod(pod_id)
-                except Exception:
-                    pass
-                await pool.remove(pod_id)
-                continue
+                    pod_info = await runpod.get_pod(pod_id)
+                    if pod_info and pod_info.get("desiredStatus") == "EXITED":
+                        logger.error(f"[health] Pod {pod_id} failed to boot (container crashed or deadline exceeded). Terminating early.")
+                        try:
+                            await runpod.terminate_pod(pod_id)
+                        except Exception:
+                            pass
+                        await pool.remove(pod_id)
+                        continue
+                except Exception as e:
+                    logger.warning(f"[health] Failed to get pod info for {pod_id} from RunPod: {e}")
 
             if age < 60:
                 # Chưa đủ 60 giây để lên http server, bỏ qua
@@ -58,14 +61,18 @@ async def _check_all():
             if ok:
                 # ComfyUI đã lên, tự đăng ký worker với proxy URL
                 logger.info(f"[health] auto-registering booting pod {pod_id} via proxy")
-                await pool.register_proxy(pod_id, proxy)
+                await pool.register_proxy(pod_id, proxy, is_manual=w.get("is_manual", False))
             elif age > settings.BOOT_TIMEOUT_SEC:
-                logger.warning(f"[health] pod {pod_id} boot timeout ({age}s), killing")
-                try:
-                    await runpod.terminate_pod(pod_id)
-                except Exception:
-                    pass
-                await pool.remove(pod_id)
+                if w.get("is_manual"):
+                    logger.warning(f"[health] manual booting pod {pod_id} boot timeout ({age}s), marking dead")
+                    await pool.set_status(pod_id, "dead")
+                else:
+                    logger.warning(f"[health] pod {pod_id} boot timeout ({age}s), killing")
+                    try:
+                        await runpod.terminate_pod(pod_id)
+                    except Exception:
+                        pass
+                    await pool.remove(pod_id)
             continue
 
         # Với worker đã idle/busy: ping proxy hoặc direct IP
@@ -133,12 +140,16 @@ async def _check_all():
         # idle pod: KHÔNG update last_active — để autoscaler đo đúng thời gian idle
         # Chỉ kill nếu pod không reachable quá lâu (BOOT_TIMEOUT_SEC)
         if not ok and age > settings.BOOT_TIMEOUT_SEC:
-            logger.warning(f"[health] idle worker {pod_id} unreachable for {age}s, killing")
-            try:
-                await runpod.terminate_pod(pod_id)
-            except Exception:
-                pass
-            await pool.remove(pod_id)
+            if w.get("is_manual"):
+                logger.warning(f"[health] manual worker {pod_id} unreachable for {age}s, marking dead")
+                await pool.set_status(pod_id, "dead")
+            else:
+                logger.warning(f"[health] idle worker {pod_id} unreachable for {age}s, killing")
+                try:
+                    await runpod.terminate_pod(pod_id)
+                except Exception:
+                    pass
+                await pool.remove(pod_id)
 
 
 async def _ping(worker: dict) -> bool:

@@ -211,10 +211,10 @@ async def admin_register_pod(req: RegisterPodReq):
 
     if req.proxy_url:
         # Community Cloud: dùng RunPod Proxy URL
-        await pool.register_proxy(req.pod_id, req.proxy_url, worker_type=req.worker_type, gpu_name=req.gpu_name)
+        await pool.register_proxy(req.pod_id, req.proxy_url, worker_type=req.worker_type, gpu_name=req.gpu_name, is_manual=True)
     else:
         # Secure Cloud: dùng IP trực tiếp
-        await pool.register(req.pod_id, req.ip, req.port, worker_type=req.worker_type, gpu_name=req.gpu_name)
+        await pool.register(req.pod_id, req.ip, req.port, worker_type=req.worker_type, gpu_name=req.gpu_name, is_manual=True)
 
     # Ghim pod nếu admin muốn
     pin_msg = None
@@ -568,6 +568,11 @@ async def reconcile_workers():
 
         for w in workers:
             pod_id = w["pod_id"]
+            if w.get("is_manual"):
+                # Bỏ qua không đối chiếu các pod đăng ký thủ công vì chúng thuộc tài khoản khác hoặc máy cá nhân
+                logger.info(f"[reconcile] pod {pod_id} is manual — skipping reconcile")
+                continue
+
             redis_status = w.get("status", "unknown")
             rp_state = runpod_status.get(pod_id, None)
 

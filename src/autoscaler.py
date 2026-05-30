@@ -232,6 +232,11 @@ async def _scale_down_two_phase(counts: dict, min_workers: int, pause_timeout: i
         idle_sec = now - w.get("last_active", 0)
 
         if status == "idle":
+            # Bỏ qua pod đăng ký thủ công (is_manual), autoscaler không tự ý dừng/xóa
+            if w.get("is_manual"):
+                logger.debug(f"[autoscale] pod {pod_id} is MANUAL — skipping scale down")
+                continue
+
             # Bỏ qua pod được ghim (pinned) cho VIP warmup
             if w.get("pinned_until", 0) > now:
                 remaining = w["pinned_until"] - now
@@ -276,6 +281,9 @@ async def _scale_down_two_phase(counts: dict, min_workers: int, pause_timeout: i
                     logger.error(f"[autoscale] stop failed: {e}")
 
         elif status == "stopped":
+            # Bỏ qua pod đăng ký thủ công (is_manual), autoscaler không tự ý xóa
+            if w.get("is_manual"):
+                continue
             # Bỏ qua pod được ghim (pinned) cho VIP warmup
             if w.get("pinned_until", 0) > now:
                 continue

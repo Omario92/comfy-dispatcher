@@ -48,7 +48,7 @@ class WorkerPool:
         await r.hset(settings.WORKERS_KEY, pod_id, json.dumps(data))
         logger.info(f"[pool] marked {pod_id} as booting (worker_type={data['worker_type']}, gpu_name={data['gpu_name']})")
 
-    async def register_proxy(self, pod_id: str, proxy_url: str, worker_type: str = "any", gpu_name: str = ""):
+    async def register_proxy(self, pod_id: str, proxy_url: str, worker_type: str = "any", gpu_name: str = "", is_manual: bool = False):
         """Auto-register pod đang booting bằng RunPod proxy URL."""
         r = await get_redis()
         raw = await r.hget(settings.WORKERS_KEY, pod_id)
@@ -56,6 +56,7 @@ class WorkerPool:
         data["status"] = "idle"
         data["proxy_url"] = proxy_url
         data["last_active"] = int(time.time())
+        data["is_manual"] = is_manual or data.get("is_manual", False)
         # Giữ worker_type nếu đã có từ mark_booting; override nếu truyền rõ ràng
         if worker_type != "any" or "worker_type" not in data:
             data["worker_type"] = worker_type
@@ -65,9 +66,9 @@ class WorkerPool:
         elif "gpu_name" not in data:
             data["gpu_name"] = ""
         await r.hset(settings.WORKERS_KEY, pod_id, json.dumps(data))
-        logger.info(f"[pool] auto-registered {pod_id} via proxy {proxy_url} (worker_type={data['worker_type']}, gpu_name={data['gpu_name']})")
+        logger.info(f"[pool] auto-registered {pod_id} via proxy {proxy_url} (worker_type={data['worker_type']}, gpu_name={data['gpu_name']}, is_manual={data['is_manual']})")
 
-    async def register(self, pod_id: str, ip: str, port: int, worker_type: str = "any", gpu_name: str = ""):
+    async def register(self, pod_id: str, ip: str, port: int, worker_type: str = "any", gpu_name: str = "", is_manual: bool = False):
         r = await get_redis()
         raw = await r.hget(settings.WORKERS_KEY, pod_id)
         data = json.loads(raw) if raw else {"pod_id": pod_id, "current_job": None}
@@ -75,6 +76,7 @@ class WorkerPool:
         data["ip"] = ip
         data["port"] = port
         data["last_active"] = int(time.time())
+        data["is_manual"] = is_manual or data.get("is_manual", False)
         # Giữ worker_type nếu đã có từ trước, override nếu truyền rõ ràng
         if worker_type != "any" or "worker_type" not in data:
             data["worker_type"] = worker_type
@@ -85,7 +87,7 @@ class WorkerPool:
             data["gpu_name"] = ""
             
         await r.hset(settings.WORKERS_KEY, pod_id, json.dumps(data))
-        logger.info(f"[pool] registered worker {pod_id} at {ip}:{port} (worker_type={data['worker_type']}, gpu_name={data['gpu_name']})")
+        logger.info(f"[pool] registered worker {pod_id} at {ip}:{port} (worker_type={data['worker_type']}, gpu_name={data['gpu_name']}, is_manual={data['is_manual']})")
 
     async def list_workers(self) -> list[dict]:
         r = await get_redis()
