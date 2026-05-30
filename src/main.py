@@ -109,22 +109,47 @@ class SubmitJobReq(BaseModel):
 async def job_recover(body: dict):
     """
     Recover thủ công job bị stuck 'running' khi ComfyUI đã xong nhưng Dispatcher không nhận được.
-    Cần truyền: job_id + prompt_id (lấy từ Redis) + comfy_endpoint (proxy URL của pod).
+    Cần truyền: job_id. prompt_id và comfy_endpoint sẽ được tự động khôi phục từ Redis nếu thiếu.
     """
     from comfy_client import build_view_url, extract_output_files, pick_primary_output
     from r2_uploader import download_and_upload_r2
     from job_processor import _callback_n8n, _guess_content_type
 
     job_id = body.get("job_id", "")
-    job_data = await jobs.get(job_id) if job_id else None
+    if not job_id:
+        raise HTTPException(status_code=400, detail="job_id is required")
 
-    prompt_id = body.get("prompt_id") or (job_data or {}).get("comfy_prompt_id", "")
-    comfy_endpoint = body.get("comfy_endpoint") or (job_data or {}).get("comfy_endpoint", "")
+    job_data = await jobs.get(job_id)
+    if not job_data:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found in Redis")
 
-    if not all([job_id, prompt_id, comfy_endpoint]):
+    pod_id = body.get("pod_id") or job_data.get("pod_id", "")
+    prompt_id = body.get("prompt_id") or job_data.get("comfy_prompt_id", "")
+    comfy_endpoint = body.get("comfy_endpoint") or job_data.get("comfy_endpoint", "")
+
+    # Tự động khôi phục comfy_endpoint từ pod_id nếu bị rỗng
+    if not comfy_endpoint and pod_id:
+        worker = await pool.get_worker(pod_id)
+        if worker:
+            comfy_endpoint = worker.get("proxy_url") or f"https://{pod_id}-8188.proxy.runpod.net"
+
+    # Trường hợp job kẹt trước khi submit workflow thành công (không có prompt_id)
+    if not prompt_id:
+        logger.warning(f"[admin] Job {job_id} has no prompt_id. Marking as failed and releasing pod {pod_id} to idle.")
+        await jobs.set_failed(job_id, "Job stuck before workflow submission (no prompt_id)")
+        if pod_id:
+            await pool.mark_idle(pod_id)
+        return {
+            "status": "released",
+            "job_id": job_id,
+            "message": f"Job had no prompt_id. It has been marked as failed and the associated pod {pod_id} has been released to idle."
+        }
+
+    # Trường hợp vẫn thiếu comfy_endpoint
+    if not comfy_endpoint:
         raise HTTPException(
             status_code=400,
-            detail="Required: job_id, prompt_id, comfy_endpoint (either in body or stored in Redis)"
+            detail=f"Required comfy_endpoint is missing, and could not be resolved from pod_id '{pod_id}'"
         )
 
     headers = {"Authorization": f"Bearer {settings.RUNPOD_API_KEY}"}
@@ -153,7 +178,6 @@ async def job_recover(body: dict):
         personality = (job_data or {}).get("personality", "")
         await jobs.set_done(job_id, result_url, img_personality=str(personality))
 
-        pod_id = (job_data or {}).get("pod_id", "")
         await _callback_n8n(job_id, "done", result_url, None, pod_id, prompt_id)
         if pod_id:
             await pool.mark_idle(pod_id)
