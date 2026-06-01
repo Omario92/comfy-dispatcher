@@ -697,7 +697,9 @@
           <label>Loại GPU Worker</label>
           <select id="hld-warm-type" class="hld-dash-select">
             <option value="video">🎬 VIP Video (RTX 5090 / L40S)</option>
+            <option value="video_tier2">🎬 VIP Video Tier 2 (RTX PRO 4500 Blackwell / RTX 4090)</option>
             <option value="image">🖼️ VIP Image (RTX 4500 Ada / 4090)</option>
+            <option value="image_tier2">🖼️ VIP Image (RTX PRO 4000 Blackwell / L4)</option>
             <option value="any">🔀 Any Worker (Mặc định)</option>
           </select>
         </div>
@@ -754,7 +756,9 @@
           <label>Loại Worker cần thêm</label>
           <select id="hld-scale-type" class="hld-dash-select">
             <option value="video">🎬 Video (Ưu tiên card RTX 5090...)</option>
+            <option value="video_tier2">🎬 Video (RTX PRO 4500 Blackwell / RTX 4090)</option>
             <option value="image">🖼️ Image (Ưu tiên card RTX 4500...)</option>
+            <option value="image_tier2">🖼️ Image (RTX PRO 4000 Blackwell / L4)</option>
           </select>
         </div>
         <button class="hld-dash-btn hld-dash-btn-blue" onclick="hldDashScaleUp()">⚡ Scale Up 1 Worker</button>
@@ -1083,18 +1087,38 @@
     
     const count = parseInt(hld$('hld-warm-count').value) || 1;
     const hours = parseFloat(hld$('hld-warm-hours').value) || 24;
-    const type = hld$('hld-warm-type').value;
+    const selectedType = hld$('hld-warm-type').value;
+
+    let type = selectedType;
+    let gpu_types = null;
+
+    if (selectedType === 'video_tier2') {
+      type = 'video';
+      gpu_types = [
+        "NVIDIA RTX PRO 4500 Blackwell",
+        "NVIDIA GeForce RTX 4090"
+      ];
+    } else if (selectedType === 'image_tier2') {
+      type = 'image';
+      gpu_types = [
+        "NVIDIA RTX PRO 4000 Blackwell",
+        "NVIDIA L4"
+      ];
+    }
 
     const payload = {
       count: count,
       duration_hours: hours,
       worker_type: type
     };
+    if (gpu_types) {
+      payload.gpu_types = gpu_types;
+    }
 
     const res = await hldDashCallApi('POST', '/admin/warmup', payload);
     if (res.ok) {
       btn.className = 'hld-dash-response-box visible ok';
-      btn.textContent = `🚀 Khởi chạy thành công ${count} Pod VIP (${type.toUpperCase()})!\nThời gian ghim: ${hours} Giờ.\n\nKết quả từ Dispatcher:\n` + JSON.stringify(res.data, null, 2);
+      btn.textContent = `🚀 Khởi chạy thành công ${count} Pod VIP (${selectedType.toUpperCase()})!\nThời gian ghim: ${hours} Giờ.\n\nKết quả từ Dispatcher:\n` + JSON.stringify(res.data, null, 2);
       hldDashToast('✅ Đã deploy nhóm Pod VIP!', 'ok');
       hldDashRefresh();
     } else {
@@ -1151,12 +1175,34 @@
     resEl.className = 'hld-dash-response-box visible';
     resEl.textContent = '⏳ Đang khởi tạo máy thường...';
 
-    const type = hld$('hld-scale-type').value;
-    const res = await hldDashCallApi('POST', '/admin/scale-up', { worker_type: type });
+    const selectedType = hld$('hld-scale-type').value;
+    let type = selectedType;
+    let gpu_types = null;
+
+    if (selectedType === 'video_tier2') {
+      type = 'video';
+      gpu_types = [
+        "NVIDIA RTX PRO 4500 Blackwell",
+        "NVIDIA GeForce RTX 4090"
+      ];
+    } else if (selectedType === 'image_tier2') {
+      type = 'image';
+      gpu_types = [
+        "NVIDIA RTX PRO 4000 Blackwell",
+        "NVIDIA L4"
+      ];
+    }
+
+    const payload = { worker_type: type };
+    if (gpu_types) {
+      payload.gpu_types = gpu_types;
+    }
+
+    const res = await hldDashCallApi('POST', '/admin/scale-up', payload);
 
     if (res.ok) {
       resEl.className = 'hld-dash-response-box visible ok';
-      resEl.textContent = `⚡ Scale Up 1 máy thành công!\n\n` + JSON.stringify(res.data, null, 2);
+      resEl.textContent = `⚡ Scale Up 1 máy thành công (${selectedType.toUpperCase()})!\n\n` + JSON.stringify(res.data, null, 2);
       hldDashToast('✅ Đang boot thêm máy!', 'ok');
       hldDashRefresh();
     } else {

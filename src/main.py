@@ -917,7 +917,8 @@ async def admin_scale_up(body: dict = {}):
     """Manual scale up (debug). Truyền worker_type để tạo đúng loại pod."""
     from autoscaler import scale_up
     worker_type = body.get("worker_type", "any") if body else "any"
-    result = await scale_up(worker_type=worker_type)
+    gpu_types = body.get("gpu_types", None) if body else None
+    result = await scale_up(worker_type=worker_type, gpu_types=gpu_types)
     return {"created": result, "worker_type": worker_type}
 
 

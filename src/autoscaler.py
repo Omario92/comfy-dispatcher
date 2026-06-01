@@ -160,7 +160,7 @@ async def _tick():
     await _scale_down_two_phase(counts, min_workers, pause_timeout=idle_timeout)
 
 
-async def scale_up(worker_type: str = "any") -> dict | None:
+async def scale_up(worker_type: str = "any", gpu_types: list[str] | None = None) -> dict | None:
     """
     Tạo pod mới trên RunPod.
 
@@ -178,20 +178,23 @@ async def scale_up(worker_type: str = "any") -> dict | None:
     name = f"{prefix}-{uuid.uuid4().hex[:8]}"
 
     # Xây dựng danh sách GPU phù hợp với worker_type
-    all_gpus = [g.strip() for g in settings.RUNPOD_GPU_TYPE.split(",") if g.strip()]
-    if worker_type == "image":
-        gpu_list = [g for g in all_gpus if g not in _IMAGE_BLOCKED_GPUS]
-        if len(gpu_list) < len(all_gpus):
-            blocked = [g for g in all_gpus if g in _IMAGE_BLOCKED_GPUS]
-            logger.info(f"[autoscale] IMAGE worker: Ẩn {len(blocked)} GPU (RTX PRO 6000): {blocked}")
-        
-        # Image worker: ưu tiên theo danh sách _IMAGE_GPU_PRIORITY
-        gpu_list = _sort_gpus(gpu_list, _IMAGE_GPU_PRIORITY)
-    elif worker_type == "video":
-        # Video worker: ưu tiên theo danh sách _VIDEO_GPU_PRIORITY
-        gpu_list = _sort_gpus(all_gpus, _VIDEO_GPU_PRIORITY)
+    if gpu_types:
+        gpu_list = gpu_types
     else:
-        gpu_list = all_gpus
+        all_gpus = [g.strip() for g in settings.RUNPOD_GPU_TYPE.split(",") if g.strip()]
+        if worker_type == "image":
+            gpu_list = [g for g in all_gpus if g not in _IMAGE_BLOCKED_GPUS]
+            if len(gpu_list) < len(all_gpus):
+                blocked = [g for g in all_gpus if g in _IMAGE_BLOCKED_GPUS]
+                logger.info(f"[autoscale] IMAGE worker: Ẩn {len(blocked)} GPU (RTX PRO 6000): {blocked}")
+            
+            # Image worker: ưu tiên theo danh sách _IMAGE_GPU_PRIORITY
+            gpu_list = _sort_gpus(gpu_list, _IMAGE_GPU_PRIORITY)
+        elif worker_type == "video":
+            # Video worker: ưu tiên theo danh sách _VIDEO_GPU_PRIORITY
+            gpu_list = _sort_gpus(all_gpus, _VIDEO_GPU_PRIORITY)
+        else:
+            gpu_list = all_gpus
 
     if not gpu_list:
         logger.error(f"[autoscale] scale_up({worker_type}): không còn GPU hợp lệ sau khi lọc!")
