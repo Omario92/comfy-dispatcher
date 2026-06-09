@@ -956,3 +956,129 @@ async def admin_recent_jobs(limit: int = 50):
     # Sắp xếp theo created_at giảm dần
     job_list.sort(key=lambda x: x.get("created_at", 0), reverse=True)
     return job_list[:limit]
+
+
+def sync_scan_r2():
+    """Quét đồng bộ toàn bộ object trong bucket outputs/ của Cloudflare R2."""
+    from collections import defaultdict
+    from r2_uploader import _make_s3
+
+    s3 = _make_s3()
+    bucket_name = settings.R2_BUCKET
+    prefix = "outputs/"
+
+    # job_id -> {"last_modified": datetime, "type": "video"|"image"|"unknown"}
+    job_details = {}
+
+    paginator = s3.get_paginator('list_objects_v2')
+    page_iterator = paginator.paginate(Bucket=bucket_name, Prefix=prefix)
+
+    for page in page_iterator:
+        contents = page.get('Contents', [])
+        if not contents:
+            continue
+
+        for obj in contents:
+            key = obj['Key']
+            last_modified = obj['LastModified']
+
+            parts = key.split('/')
+            if len(parts) < 3:
+                continue
+
+            job_id = parts[1]
+            filename = parts[2].lower()
+
+            is_video = filename.endswith(('.mp4', '.webm', '.gif'))
+            is_image = filename.endswith(('.png', '.jpg', '.jpeg', '.webp'))
+
+            j_type = "unknown"
+            if is_video:
+                j_type = "video"
+            elif is_image:
+                j_type = "image"
+
+            # Giữ thời gian sớm nhất của job
+            if job_id not in job_details:
+                job_details[job_id] = {
+                    "last_modified": last_modified,
+                    "type": j_type
+                }
+            else:
+                if last_modified < job_details[job_id]["last_modified"]:
+                    job_details[job_id]["last_modified"] = last_modified
+                
+                # Nếu phát hiện type cụ thể, ghi đè unknown
+                if j_type != "unknown" and job_details[job_id]["type"] == "unknown":
+                    job_details[job_id]["type"] = j_type
+                # Video được ưu tiên hơn nếu có cả 2
+                if j_type == "video":
+                    job_details[job_id]["type"] = "video"
+
+    # Gom nhóm thống kê theo ngày YYYY-MM-DD
+    date_stats = defaultdict(lambda: {"total": 0, "video": 0, "image": 0})
+    total_video = 0
+    total_image = 0
+
+    for job_id, info in job_details.items():
+        date_str = info["last_modified"].strftime('%Y-%m-%d')
+        j_type = info["type"]
+
+        date_stats[date_str]["total"] += 1
+        if j_type == "video":
+            date_stats[date_str]["video"] += 1
+            total_video += 1
+        elif j_type == "image":
+            date_stats[date_str]["image"] += 1
+            total_image += 1
+
+    # Sắp xếp và format lại danh sách theo ngày tăng dần
+    sorted_dates = sorted(date_stats.keys())
+    daily_stats = []
+    for d in sorted_dates:
+        daily_stats.append({
+            "date": d,
+            "total": date_stats[d]["total"],
+            "video": date_stats[d]["video"],
+            "image": date_stats[d]["image"]
+        })
+
+    return {
+        "summary": {
+            "total_jobs": len(job_details),
+            "total_video": total_video,
+            "total_image": total_image,
+            "updated_at": int(time.time())
+        },
+        "daily": daily_stats
+    }
+
+
+@app.get("/admin/total-stats")
+async def admin_total_stats(force_refresh: bool = False):
+    """
+    Thống kê tổng số lượt chơi từ Cloudflare R2.
+    Có cache Redis 10 phút để tối ưu hiệu năng.
+    """
+    r = await get_redis()
+    cache_key = "cache:admin_total_stats"
+
+    if not force_refresh:
+        cached_data = await r.get(cache_key)
+        if cached_data:
+            try:
+                return json.loads(cached_data)
+            except Exception:
+                pass
+
+    # Chạy scan đồng bộ trong thread pool tránh block Event Loop
+    loop = asyncio.get_event_loop()
+    try:
+        stats_data = await loop.run_in_executor(None, sync_scan_r2)
+        # Cache 10 phút (600 giây)
+        await r.setex(cache_key, 600, json.dumps(stats_data))
+        return stats_data
+    except Exception as e:
+        logger.exception(f"[admin] Failed to scan R2 stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to scan R2 stats: {str(e)}")
+

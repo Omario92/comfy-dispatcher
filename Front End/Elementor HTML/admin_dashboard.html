@@ -508,6 +508,38 @@
     }
     @keyframes hld-dash-spin { to { transform: rotate(360deg); } }
 
+    /* Progress bar for trends */
+    .hld-dash-progress-track {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      height: 8px;
+      width: 100%;
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .hld-dash-progress-bar {
+      height: 100%;
+      border-radius: 10px;
+      background: linear-gradient(90deg, var(--cyan) 0%, var(--gold) 100%);
+      transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .hld-dash-progress-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-left: 8px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .hld-dash-trend-cell {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+
     /* ── LOGIN SHIELD (GLASSMORPHISM) ── */
     .hld-dash-login-shield {
       display: flex;
@@ -814,6 +846,54 @@
       <div class="hld-dash-response-box" id="hld-res-utils" style="margin-top: 15px;"></div>
     </div>
 
+    <!-- ── TOTAL SYSTEM STATS (R2 SUMMARY) ── -->
+    <div class="hld-dash-table-card" id="hld-total-stats-section" style="margin-top: 25px;">
+      <div class="hld-dash-table-header">
+        <h2>📊 Tổng Kết Số Lượt Chơi Toàn Hệ Thống (Storage R2)</h2>
+        <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+          <span style="font-size: 12px; color: var(--text-muted); font-weight: 500;" id="hld-total-stats-time">Cập nhật: Đang tải...</span>
+          <button class="hld-dash-btn hld-dash-btn-gray hld-dash-btn-sm" style="width: auto; margin:0; height: 32px;" onclick="hldDashLoadTotalStats(true)" id="hld-btn-refresh-total-stats">⚡ Làm mới R2</button>
+        </div>
+      </div>
+
+      <!-- Stats Chips inside Total Stats Card -->
+      <div class="hld-dash-stats-bar" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 20px;">
+        <div class="hld-dash-stat-chip queue" style="cursor: default; padding: 12px 16px;">
+          <div class="val" id="hld-ts-total" style="font-size: 24px; color: var(--purple);">—</div>
+          <div class="lbl" style="font-size: 10px;">👥 Tổng Lượt Chơi</div>
+        </div>
+        <div class="hld-dash-stat-chip idle" style="cursor: default; padding: 12px 16px;">
+          <div class="val" id="hld-ts-video" style="font-size: 24px; color: var(--green);">—</div>
+          <div class="lbl" style="font-size: 10px;">🎬 Tổng Video</div>
+        </div>
+        <div class="hld-dash-stat-chip busy" style="cursor: default; padding: 12px 16px;">
+          <div class="val" id="hld-ts-image" style="font-size: 24px; color: var(--yellow);">—</div>
+          <div class="lbl" style="font-size: 10px;">🖼️ Tổng Hình Ảnh</div>
+        </div>
+      </div>
+
+      <div class="hld-dash-table-scroll" style="max-height: 350px; overflow-y: auto;">
+        <table class="hld-dash-table">
+          <thead>
+            <tr>
+              <th>Ngày</th>
+              <th>Tổng Lượt Chơi</th>
+              <th>🎬 Video</th>
+              <th>🖼️ Hình Ảnh</th>
+              <th style="width: 45%;">Tỷ Lệ Xu Hướng</th>
+            </tr>
+          </thead>
+          <tbody id="hld-total-stats-tbody">
+            <tr>
+              <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 30px;">
+                Đang nạp dữ liệu thống kê từ R2...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- ── RECENT JOBS TABLE ── -->
     <div class="hld-dash-table-card" id="hld-jobs-section">
       <div class="hld-dash-table-header">
@@ -985,6 +1065,9 @@
 
       // Tải danh sách 50 jobs gần nhất
       hldDashLoadRecentJobs();
+      
+      // Tải danh sách thống kê tổng số lượt chơi từ R2
+      hldDashLoadTotalStats();
 
     } catch(e) {
       hldDashToast('Kết nối thất bại!', 'err');
@@ -1340,6 +1423,107 @@
 
     btn.disabled = false;
     btn.innerHTML = '💣 XÓA SẠCH MÁY (TERMINATE ALL)';
+  }
+
+  // Fetch and Render Player Summary Stats (R2)
+  let hldTotalStatsLoading = false;
+  async function hldDashLoadTotalStats(forceRefresh = false) {
+    if (hldTotalStatsLoading) return;
+    hldTotalStatsLoading = true;
+
+    const tbody = hld$('hld-total-stats-tbody');
+    const refreshBtn = hld$('hld-btn-refresh-total-stats');
+    
+    if (forceRefresh) {
+      hldDashToast('⏳ Đang quét trực tiếp bộ lưu trữ R2 (có thể mất 1-2s)...', 'ok');
+      if (refreshBtn) {
+        refreshBtn.disabled = true;
+        refreshBtn.innerHTML = '<span class="hld-dash-spinner"></span> Đang quét...';
+      }
+    }
+
+    try {
+      const path = `/admin/total-stats${forceRefresh ? '?force_refresh=true' : ''}`;
+      const res = await hldDashCallApi('GET', path);
+      
+      if (forceRefresh && refreshBtn) {
+        refreshBtn.disabled = false;
+        refreshBtn.innerHTML = '⚡ Làm mới R2';
+      }
+
+      if (!res.ok) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--red); padding:20px;">Lỗi tải thống kê: ${res.data?.detail || 'Không thể kết nối'}</td></tr>`;
+        hldTotalStatsLoading = false;
+        return;
+      }
+
+      const data = res.data || {};
+      const summary = data.summary || {};
+      const daily = data.daily || [];
+
+      // Update Summary Cards
+      hld$('hld-ts-total').textContent = (summary.total_jobs ?? 0).toLocaleString('vi-VN');
+      hld$('hld-ts-video').textContent = (summary.total_video ?? 0).toLocaleString('vi-VN');
+      hld$('hld-ts-image').textContent = (summary.total_image ?? 0).toLocaleString('vi-VN');
+      
+      // Update Timestamp
+      if (summary.updated_at) {
+        const updateDate = new Date(summary.updated_at * 1000);
+        hld$('hld-total-stats-time').textContent = `Cập nhật: ${updateDate.toLocaleTimeString('vi-VN')} ${updateDate.toLocaleDateString('vi-VN')}`;
+      }
+
+      if (daily.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:20px;">Không có dữ liệu thống kê nào</td></tr>`;
+        hldTotalStatsLoading = false;
+        return;
+      }
+
+      // Find Max Total for scaling progress bars
+      const maxTotal = Math.max(...daily.map(d => d.total), 1);
+
+      // Render daily stats table (reversed for descending order of dates)
+      const reversedDaily = [...daily].reverse();
+      tbody.innerHTML = reversedDaily.map(d => {
+        const percent = Math.round((d.total / maxTotal) * 100);
+        
+        // Highlight peak days (total >= 100)
+        const totalHighlightStyle = d.total >= 100 
+          ? 'color: var(--gold); font-weight: 800; text-shadow: 0 0 8px var(--gold-glow);' 
+          : 'font-weight: 600; color: #fff;';
+          
+        const labelText = d.total >= 100 ? `${d.total} lượt (🔥 Cao điểm)` : `${d.total} lượt`;
+
+        return `
+          <tr>
+            <td class="mono" style="font-weight: 600; color: #fff;">${d.date}</td>
+            <td style="${totalHighlightStyle}">${labelText}</td>
+            <td style="color: #34d399; font-weight: 500;">🎬 ${d.video}</td>
+            <td style="color: #fbbf24; font-weight: 500;">🖼️ ${d.image}</td>
+            <td>
+              <div class="hld-dash-trend-cell">
+                <div class="hld-dash-progress-track">
+                  <div class="hld-dash-progress-bar" style="width: ${percent}%;"></div>
+                </div>
+                <span class="hld-dash-progress-label">${percent}%</span>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      if (forceRefresh) {
+        hldDashToast('✅ Đã cập nhật thống kê mới nhất từ R2!', 'ok');
+      }
+
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--red); padding:20px;">Lỗi: ${e.message}</td></tr>`;
+      if (forceRefresh && refreshBtn) {
+        refreshBtn.disabled = false;
+        refreshBtn.innerHTML = '⚡ Làm mới R2';
+      }
+    } finally {
+      hldTotalStatsLoading = false;
+    }
   }
 
   // Fetch and Render 50 Recent Jobs
